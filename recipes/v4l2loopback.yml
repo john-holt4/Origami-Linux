@@ -1,0 +1,6 @@
+- type: dnf
+  repos:
+    cleanup: true
+  install:
+    packages:
+      - v4l2loopback

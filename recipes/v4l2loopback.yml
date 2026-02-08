@@ -1,6 +1,8 @@
-- type: dnf
-  repos:
-    cleanup: true
-  install:
-    packages:
-      - v4l2loopback
+# yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
+modules:
+  - type: dnf
+    repos:
+      cleanup: true
+    install:
+      packages:
+        - v4l2loopback

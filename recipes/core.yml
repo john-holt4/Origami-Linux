@@ -28,6 +28,7 @@ modules:
         - terra-release
         - origami-update-applet
         - oru
+        - v4l2loopback
         - fish
         - lazygit
         - helix

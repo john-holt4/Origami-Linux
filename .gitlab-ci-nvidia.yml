@@ -9,7 +9,7 @@ build-nvidia-image:
   variables:
     IMAGE_NAME: "registry.gitlab.com/origami-linux/images/origami-nvidia"
   script:
-    - bluebuild build --verbose --build-chunked-oci --compression-format zstd --push ./recipes/nvidia.yml
+    - bluebuild build --verbose --compression-format zstd --push ./recipes/nvidia.yml
     - curl -fsSL -o /tmp/crane.tgz https://github.com/google/go-containerregistry/releases/latest/download/go-containerregistry_Linux_x86_64.tar.gz
     - tar -xzf /tmp/crane.tgz -C /tmp crane
     - install -m 0755 /tmp/crane /usr/local/bin/crane

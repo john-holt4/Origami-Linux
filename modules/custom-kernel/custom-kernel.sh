@@ -219,9 +219,8 @@ log "Temporarily disabling akmodsbuild script for v4l2loopback."
 disable_akmodsbuild || exit 1
 
 log "Enabling RPM Fusion Free repo for v4l2loopback."
-curl -fsSL --retry 5 --create-dirs \
-    https://download1.rpmfusion.org/free/fedora/rpmfusion-free.repo \
-    -o /etc/yum.repos.d/rpmfusion-free.repo
+dnf -y install \
+    https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
 
 log "Building and installing v4l2loopback kernel module packages."
 dnf install -y --setopt=install_weak_deps=False --setopt=tsflags=noscripts \
@@ -246,7 +245,8 @@ if (( ${#FAIL_LOGS[@]} )); then
 fi
 
 log "Cleaning RPM Fusion Free repo."
-rm -f /etc/yum.repos.d/rpmfusion-free.repo
+dnf -y remove rpmfusion-free-release
+rm -f /etc/yum.repos.d/rpmfusion-free*.repo
 
 log "Restoring akmodsbuild script."
 restore_akmodsbuild

@@ -15,7 +15,6 @@ modules:
       cleanup: true
       copr:
         - bieszczaders/kernel-cachyos-addons
-        - atim/starship
         - sneexy/zen-browser
         - lilay/origami-linux
         - lilay/tealdeer

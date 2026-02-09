@@ -14,8 +14,6 @@ modules:
       - source: system
         destination: /
 
-  - from-file: v4l2loopback.yml
-
   - type: custom-kernel
     source: local
     kernel: cachyos-lto

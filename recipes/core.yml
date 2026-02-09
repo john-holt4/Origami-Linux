@@ -27,8 +27,10 @@ modules:
       packages:
         - terra-release
         - v4l-utils
+        - repo: copr:copr.fedorainfracloud.org:lilay:origami-linux
+          packages:
+            - cosmic-initial-setup
         - origami-update-applet
-        - cosmic-initial-setup
         - oru
         - fish
         - lazygit

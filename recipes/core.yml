@@ -26,6 +26,8 @@ modules:
     install:
       packages:
         - terra-release
+        - v4l-utils
+        - v4l2loopback-utils
         - origami-update-applet
         - oru
         - fish

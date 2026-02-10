@@ -26,6 +26,7 @@ modules:
         - v4l-utils
         - origami-update-applet
         - oru
+        - tealdear
         - fish
         - lazygit
         - helix
@@ -67,7 +68,6 @@ modules:
         - cachyos-settings
         - scx-scheds
         - scx-tools
-        - https://download.copr.fedorainfracloud.org/results/lilay/origami-linux/fedora-43-x86_64/10105401-cosmic-initial-setup/cosmic-initial-setup-1.0.4-latest.fc43.x86_64.rpm
     remove:
       auto-remove: true
       packages:

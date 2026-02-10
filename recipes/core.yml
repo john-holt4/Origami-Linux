@@ -15,17 +15,16 @@ modules:
       cleanup: true
       copr:
         - bieszczaders/kernel-cachyos-addons
-        - atim/starship
         - sneexy/zen-browser
         - lilay/origami-linux
         - lilay/tealdeer
-        - dejan/lazygit
       files:
         - https://github.com/terrapkg/subatomic-repos/raw/main/terra.repo
         - https://pkg.cloudflareclient.com/cloudflare-warp-ascii.repo
     install:
       packages:
         - terra-release
+        - v4l-utils
         - origami-update-applet
         - oru
         - fish
@@ -72,11 +71,11 @@ modules:
         - repo: copr:copr.fedorainfracloud.org:lilay:tealdeer
           packages:
             - tealdeer
+
     remove:
       auto-remove: true
       packages:
         - zram-generator-defaults
-        - cosmic-player
         - firefox
         - firefox-langpacks
         - gnome-system-monitor

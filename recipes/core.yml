@@ -72,7 +72,6 @@ modules:
       auto-remove: true
       packages:
         - zram-generator-defaults
-        - cosmic-player
         - firefox
         - firefox-langpacks
         - gnome-system-monitor

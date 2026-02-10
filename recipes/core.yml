@@ -20,22 +20,6 @@ modules:
       files:
         - https://github.com/terrapkg/subatomic-repos/raw/main/terra.repo
         - https://pkg.cloudflareclient.com/cloudflare-warp-ascii.repo
-    remove:
-      auto-remove: true
-      packages:
-        - cosmic-initial-setup
-        - zram-generator-defaults
-        - cosmic-player
-        - firefox
-        - firefox-langpacks
-        - gnome-system-monitor
-        - ark
-        - htop
-        - vim
-        - nvtop
-        - just
-        - toolbox
-        - google-noto-color-emoji-fonts
     install:
       packages:
         - terra-release
@@ -84,6 +68,21 @@ modules:
         - scx-scheds
         - scx-tools
         - https://download.copr.fedorainfracloud.org/results/lilay/origami-linux/fedora-43-x86_64/10105401-cosmic-initial-setup/cosmic-initial-setup-1.0.4-latest.fc43.x86_64.rpm
+    remove:
+      auto-remove: true
+      packages:
+        - zram-generator-defaults
+        - cosmic-player
+        - firefox
+        - firefox-langpacks
+        - gnome-system-monitor
+        - ark
+        - htop
+        - vim
+        - nvtop
+        - just
+        - toolbox
+        - google-noto-color-emoji-fonts
 
   - type: fonts
     fonts:

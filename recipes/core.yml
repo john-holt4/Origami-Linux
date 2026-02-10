@@ -17,6 +17,7 @@ modules:
         - bieszczaders/kernel-cachyos-addons
         - sneexy/zen-browser
         - lilay/origami-linux
+        - lilay/tealdeer
       files:
         - https://github.com/terrapkg/subatomic-repos/raw/main/terra.repo
         - https://pkg.cloudflareclient.com/cloudflare-warp-ascii.repo
@@ -26,7 +27,6 @@ modules:
         - v4l-utils
         - origami-update-applet
         - oru
-        - tealdeer
         - fish
         - lazygit
         - helix
@@ -68,6 +68,10 @@ modules:
         - cachyos-settings
         - scx-scheds
         - scx-tools
+        - repo: copr:copr.fedorainfracloud.org:lilay:tealdeer
+          packages:
+            - tealdeer
+
     remove:
       auto-remove: true
       packages:

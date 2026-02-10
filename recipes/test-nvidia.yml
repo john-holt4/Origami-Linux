@@ -19,7 +19,7 @@ modules:
 
   - type: custom-kernel
     source: local
-    kernel: cachyos-lto
+    kernel: cachyos-lts-lto
     nvidia: true
     secrets:
       - type: file

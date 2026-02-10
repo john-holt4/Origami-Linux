@@ -26,9 +26,6 @@ modules:
       packages:
         - terra-release
         - v4l-utils
-        - repo: copr:copr.fedorainfracloud.org:lilay:origami-linux
-          packages:
-            - cosmic-initial-setup
         - origami-update-applet
         - oru
         - fish
@@ -72,9 +69,7 @@ modules:
         - cachyos-settings
         - scx-scheds
         - scx-tools
-        - repo: copr:copr.fedorainfracloud.org:lilay:tealdeer
-          packages:
-            - tealdeer
+        - https://download.copr.fedorainfracloud.org/results/lilay/origami-linux/fedora-43-x86_64/10111825-cosmic-initial-setup/cosmic-initial-setup-0.1.4-latest.fc43.x86_64.rpm
     remove:
       auto-remove: true
       packages:

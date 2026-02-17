@@ -1,15 +1,20 @@
 #!/bin/bash
 set -e
 
-# 1. Ensure the destination directory exists
-# BlueBuild/Container environments often lack /usr/local/bin by default
+# 1. Ensure the destination directories exist
 mkdir -p /usr/local/bin
 mkdir -p /usr/share/applications
 mkdir -p /usr/share/icons/hicolor/scalable/apps/
 
 # 2. Install Build Dependencies
+# Added glib2-devel, gstreamer1-devel, and gstreamer1-plugins-base-devel for Ethereal Waves
 echo "Installing build dependencies..."
-dnf install -y curl jq cargo git gcc libxkbcommon-devel just
+dnf install -y \
+    curl jq cargo git gcc just \
+    libxkbcommon-devel \
+    glib2-devel \
+    gstreamer1-devel \
+    gstreamer1-plugins-base-devel
 
 # --- PART 1: SURGE (Binary) ---
 echo "Fetching latest Surge..."
@@ -18,10 +23,7 @@ DOWNLOAD_URL=$(curl -s https://api.github.com/repos/$REPO/releases/latest \
   | jq -r '.assets[] | select(.name | contains("linux_amd64.tar.gz")) | .browser_download_url')
 
 TEMP_DIR=$(mktemp -d)
-# Extract directly to the temp dir to avoid path issues
 curl -L "$DOWNLOAD_URL" | tar -xz -C "$TEMP_DIR"
-
-# Find the binary regardless of internal folder structure and move it
 find "$TEMP_DIR" -type f -name "surge" -exec mv {} /usr/local/bin/surge \;
 chmod +x /usr/local/bin/surge
 echo "Surge installed to /usr/local/bin/surge"
@@ -49,7 +51,6 @@ echo "Building Cupola..."
 cd /tmp/build
 git clone https://github.com/cosmic-utils/cupola.git
 cd cupola
-# Just build-release usually needs home dir access for cargo, which is fine here
 just build-release
 mv target/release/cupola /usr/local/bin/
 
@@ -71,7 +72,11 @@ EOF
 echo "Cleaning up..."
 cd /
 rm -rf /tmp/build "$TEMP_DIR"
-dnf remove -y cargo git gcc libxkbcommon-devel just
+# Remove the tools and devel packages to keep the final image clean
+dnf remove -y \
+    cargo git gcc just \
+    libxkbcommon-devel glib2-devel \
+    gstreamer1-devel gstreamer1-plugins-base-devel
 dnf clean all
 
 echo "Build complete!"

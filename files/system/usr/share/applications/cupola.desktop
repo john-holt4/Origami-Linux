@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Cupola
+GenericName=Image Viewer
+Comment=View images and photos
+Exec=cupola %F
+Icon=org.codeberg.bhh32.Cupola
+Terminal=false
+Categories=Graphics;Viewer;GTK;
+MimeType=image/png;image/jpeg;image/gif;image/webp;image/bmp;image/tiff;image/x-icon;image/avif;image/x-dcraw;
+Keywords=image;photo;picture;viewer;gallery;
+StartupNotify=true

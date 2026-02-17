@@ -10,6 +10,10 @@ modules:
       enabled:
         - podman.socket
 
+  - type: script
+    scripts:
+      - install-apps.sh
+
   - type: dnf
     repos:
       cleanup: true
@@ -63,7 +67,6 @@ modules:
         - uutils-coreutils
         - byobu
         - micro
-        - system-config-printer
         - steam-devices
         - cachyos-settings
         - scx-scheds
@@ -81,7 +84,6 @@ modules:
         - gnome-system-monitor
         - ark
         - htop
-        - vim
         - nvtop
         - just
         - toolbox

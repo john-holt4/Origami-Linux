@@ -1,10 +1,6 @@
 #!/bin/bash
 set -e
 
-# 1. Ensure the destination directory exists
-# In image builds, /usr/local/bin may not exist yet
-mkdir -p /usr/local/bin
-
 # 2. Fetch latest Surge
 echo "Fetching latest Surge..."
 REPO="surge-downloader/Surge"
@@ -20,11 +16,11 @@ curl -L "$DOWNLOAD_URL" | tar -xz -C "$TEMP_DIR"
 # 4. Move the binary
 # We find by name to handle any internal folder structure changes
 find "$TEMP_DIR" -type f -name "surge" -exec mv {} /usr/local/bin/surge \;
-chmod +x /usr/local/bin/surge
+chmod +x /usr/bin/surge
 
 # 5. Cleanup
 echo "Cleaning up..."
 cd /
 rm -rf "$TEMP_DIR"
 
-echo "Surge installed successfully to /usr/local/bin/surge"
+echo "Surge installed successfully to /usr/bin/surge"

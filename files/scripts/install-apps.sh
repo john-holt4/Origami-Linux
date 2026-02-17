@@ -15,7 +15,7 @@ curl -L "$DOWNLOAD_URL" | tar -xz -C "$TEMP_DIR"
 
 # 4. Move the binary
 # We find by name to handle any internal folder structure changes
-find "$TEMP_DIR" -type f -name "surge" -exec mv {} /usr/local/bin/surge \;
+find "$TEMP_DIR" -type f -name "surge" -exec mv {} /usr/bin/surge \;
 chmod +x /usr/bin/surge
 
 # 5. Cleanup

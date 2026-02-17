@@ -67,7 +67,6 @@ modules:
         - cachyos-settings
         - scx-scheds
         - scx-tools
-        - rust-nu
         - repo: copr:copr.fedorainfracloud.org:lilay:tealdeer
           packages:
             - tealdeer
@@ -81,7 +80,6 @@ modules:
         - gnome-system-monitor
         - ark
         - htop
-        - vim
         - nvtop
         - just
         - toolbox

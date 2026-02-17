@@ -68,6 +68,7 @@ modules:
         - cachyos-settings
         - scx-scheds
         - scx-tools
+        - nushell
         - repo: copr:copr.fedorainfracloud.org:lilay:tealdeer
           packages:
             - tealdeer
@@ -115,4 +116,5 @@ modules:
     scripts:
       - adios-ioscheduler.sh
       - install-theme.sh
+      - shell-init.sh
       - cleanup.sh

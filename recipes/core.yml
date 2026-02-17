@@ -63,12 +63,11 @@ modules:
         - uutils-coreutils
         - byobu
         - micro
-        - system-config-printer
         - steam-devices
         - cachyos-settings
         - scx-scheds
         - scx-tools
-        - nushell
+        - rust-nu
         - repo: copr:copr.fedorainfracloud.org:lilay:tealdeer
           packages:
             - tealdeer

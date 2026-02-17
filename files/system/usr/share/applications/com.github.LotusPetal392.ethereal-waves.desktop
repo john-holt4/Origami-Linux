@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Ethereal Waves
+Comment=Ethereal Waves
+Type=Application
+Icon=com.github.LotusPetal392.ethereal-waves
+Exec=ethereal-waves %F
+Terminal=false
+StartupNotify=true
+Categories=COSMIC;AudioVideo;Audio;Player;
+Keywords=COSMIC;AudioVideo;Audio;Player;
+MimeType=

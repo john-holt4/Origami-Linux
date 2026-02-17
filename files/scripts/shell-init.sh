@@ -20,7 +20,7 @@ zoxide init nushell | sudo tee /etc/nushell/zoxide.nu > /dev/null
 
 # 4. Pre-generate uutils shims statically
 # We move this to /usr/share/nushell to keep it with system vendor files
-ls /usr/bin/uu_* | sed 's|.*/uu_\(.*\)|alias \1 = ^&|' | grep -vE "ls|cat|\[|test|ps|du" | sudo tee /usr/share/nushell/origami_uutils.nu > /dev/null
+ls /usr/bin/uu_* | sed 's|.*/uu_\(.*\)|alias \1 = ^&|' | grep -vE "ls|cat|\[|test|ps|du|true|false" | sudo tee /usr/share/nushell/origami_uutils.nu > /dev/null
 
 # --- 1. System-wide (Bash/Fish/General) ---
 echo 'export EDITOR="micro"

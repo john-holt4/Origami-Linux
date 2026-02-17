@@ -10,6 +10,10 @@ modules:
       enabled:
         - podman.socket
 
+  - type: script
+    scripts:
+      - install-apps.sh
+
   - type: dnf
     repos:
       cleanup: true

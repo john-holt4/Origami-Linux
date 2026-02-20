@@ -146,24 +146,43 @@ dnf -y remove rpmfusion-free-release || true
 rm -f /etc/yum.repos.d/rpmfusion-free*.repo
 
 sign_kernel() {
-  local module_root="/usr/lib/modules/${KERNEL_VERSION}" vmlinuz="${module_root}/vmlinuz" signed
+  local module_root
+  local vmlinuz
+  local signed
+
+  module_root="/usr/lib/modules/${KERNEL_VERSION}"
+  vmlinuz="${module_root}/vmlinuz"
+
   [[ -f "${vmlinuz}" ]] || { error "Can't find kernel image: ${vmlinuz}"; return 1; }
+
   signed="$(mktemp)"
   sbsign --key "${SIGNING_KEY}" --cert "${SIGNING_CERT}" --output "${signed}" "${vmlinuz}"
-  sbverify --cert "${SIGNING_CERT}" "${signed}" >/dev/null || { rm -f "${signed}"; error "Kernel signature verification failed"; return 1; }
+  sbverify --cert "${SIGNING_CERT}" "${signed}" >/dev/null || {
+    rm -f "${signed}"
+    error "Kernel signature verification failed"
+    return 1
+  }
+
   install -m 0644 "${signed}" "${vmlinuz}"
   rm -f "${signed}"
   sha256sum "${vmlinuz}" > /tmp/vmlinuz.sha
 }
 
 sign_kernel_modules() {
-  local module_root="/usr/lib/modules/${KERNEL_VERSION}" sign_file="${module_root}/build/scripts/sign-file" mod raw
+  local module_root
+  local sign_file
+  local mod
+  local raw
+
+  module_root="/usr/lib/modules/${KERNEL_VERSION}"
+  sign_file="${module_root}/build/scripts/sign-file"
+
   [[ -x "${sign_file}" ]] || { error "sign-file not found or not executable: ${sign_file}"; return 1; }
 
   while IFS= read -r -d '' mod; do
     case "${mod}" in
       *.ko) "${sign_file}" sha256 "${SIGNING_KEY}" "${SIGNING_CERT}" "${mod}" ;;
-      *.ko.xz)  xz -d -q "${mod}"; raw="${mod%.xz}";   "${sign_file}" sha256 "${SIGNING_KEY}" "${SIGNING_CERT}" "${raw}"; xz -z -q "${raw}" ;;
+      *.ko.xz)  xz -d -q "${mod}"; raw="${mod%.xz}"; "${sign_file}" sha256 "${SIGNING_KEY}" "${SIGNING_CERT}" "${raw}"; xz -z -q "${raw}" ;;
       *.ko.zst) zstd -d -q --rm "${mod}"; raw="${mod%.zst}"; "${sign_file}" sha256 "${SIGNING_KEY}" "${SIGNING_CERT}" "${raw}"; zstd -q "${raw}" ;;
       *.ko.gz)  gunzip -q "${mod}"; raw="${mod%.gz}"; "${sign_file}" sha256 "${SIGNING_KEY}" "${SIGNING_CERT}" "${raw}"; gzip -q "${raw}" ;;
     esac || return 1
@@ -171,7 +190,10 @@ sign_kernel_modules() {
 }
 
 create_mok_enroll_unit() {
-  local unit="/usr/lib/systemd/system/mok-enroll.service" mok_cert="/usr/share/cert/MOK.der" tmp_der
+  local unit="/usr/lib/systemd/system/mok-enroll.service"
+  local mok_cert="/usr/share/cert/MOK.der"
+  local tmp_der
+
   tmp_der="$(mktemp)"
   openssl x509 -in "${SIGNING_CERT}" -outform DER -out "${tmp_der}"
   install -D -m 0644 "${tmp_der}" "${mok_cert}"
@@ -192,6 +214,7 @@ RemainAfterExit=yes
 [Install]
 WantedBy=multi-user.target
 EOF
+
   systemctl -f enable mok-enroll.service
 }
 

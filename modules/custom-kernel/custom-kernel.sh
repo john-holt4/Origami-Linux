@@ -6,10 +6,20 @@ error() { echo "[custom-kernel] Error: $*" >&2; }
 
 log "Starting custom-kernel module..."
 
-CONFIG="${1:-{}}"
+RAW_CONFIG="${1:-{}}"
+CONFIG="${RAW_CONFIG}"
 
-# Strict JSON validation
-jq -e . >/dev/null <<< "${CONFIG}" || { error "Invalid JSON config payload"; exit 1; }
+# Try strict parse first; if it fails, trim to first valid JSON object as fallback
+if ! jq -e . >/dev/null 2>&1 <<< "${CONFIG}"; then
+  CONFIG="$(printf '%s' "${RAW_CONFIG}" | sed -n 's/^[^{]*\({.*}\)[^}]*$/\1/p')"
+fi
+
+# Final validation
+jq -e . >/dev/null <<< "${CONFIG}" || {
+  error "Invalid JSON config payload"
+  error "Raw payload (truncated): $(printf '%s' "${RAW_CONFIG}" | head -c 240)"
+  exit 1
+}
 
 # Single-pass config parse
 read -r KERNEL_TYPE INITRAMFS SIGNING_KEY SIGNING_CERT MOK_PASSWORD < <(

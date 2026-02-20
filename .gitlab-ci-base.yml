@@ -11,7 +11,7 @@ build-base-image:
     IMAGE_NAME: "registry.gitlab.com/origami-linux/images/origami"
   script:
     - bluebuild build --verbose --build-chunked-oci --compression-format zstd --push ./recipes/base.yml
-    - *install_crane
+    - !reference [.install-crane, script]
     - crane tag "$IMAGE_NAME:latest" cachy
 
 build-base-iso:

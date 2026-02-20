@@ -8,10 +8,13 @@
   - echo $CI_REGISTRY_PASSWORD | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
 
 # --- Reusable crane install steps ---
-.install_crane: &install_crane
-  - curl -fsSL -o /tmp/crane.tgz https://github.com/google/go-containerregistry/releases/latest/download/go-containerregistry_Linux_x86_64.tar.gz
-  - tar -xzf /tmp/crane.tgz -C /tmp crane
-  - install -m 0755 /tmp/crane /usr/local/bin/crane
+# Use !reference [.install-crane, script] to include these steps in a job's script.
+# Note: YAML anchors (&/*) cannot cross file boundaries — !reference must be used instead.
+.install-crane:
+  script:
+    - curl -fsSL -o /tmp/crane.tgz https://github.com/google/go-containerregistry/releases/latest/download/go-containerregistry_Linux_x86_64.tar.gz
+    - tar -xzf /tmp/crane.tgz -C /tmp crane
+    - install -m 0755 /tmp/crane /usr/local/bin/crane
 
 .bluebuild-job-template:
   interruptible: true

@@ -14,9 +14,9 @@ modules:
       - source: system
         destination: /
 
-  - type: cachyos-lto-nvidia
+  - type: custom-kernel
     source: local
-    kernel: cachyos-lto
+    kernel: cachyos-lto-nvidia
     secrets:
       - type: file
         source: .secure_files/MOK.priv

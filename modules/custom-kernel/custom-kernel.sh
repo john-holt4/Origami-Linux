@@ -6,12 +6,15 @@ error() { echo "[custom-kernel] Error: $*" >&2; }
 
 log "Starting custom-kernel module..."
 
-# Parse configuration
-KERNEL_TYPE=$(echo "$1" | jq -r '.kernel // "cachyos-lto"')
-INITRAMFS=$(echo "$1" | jq -r '.initramfs // false')
-SIGNING_KEY=$(echo "$1" | jq -r '.sign.key // ""')
-SIGNING_CERT=$(echo "$1" | jq -r '.sign.cert // ""')
-MOK_PASSWORD=$(echo "$1" | jq -r '.sign.["mok-password"] // ""')
+# Parse configuration (single jq call)
+IFS=$'\t' read -r KERNEL_TYPE INITRAMFS SIGNING_KEY SIGNING_CERT MOK_PASSWORD < <(
+    printf '%s' "$1" | jq -r '[
+        .kernel // "cachyos-lto",
+        (.initramfs // false | tostring),
+        (.sign.key // ""),
+        (.sign.cert // ""),
+        (.sign["mok-password"] // "")
+    ] | @tsv')
 SECURE_BOOT=false
 
 # Validate signing config
@@ -75,12 +78,13 @@ KERNEL_PACKAGES=(
 [[ "${NVIDIA}" == true ]] && KERNEL_PACKAGES+=("kernel-${BASE_TYPE}-nvidia-open")
 
 # Kernel install hook helpers
+_KERNEL_HOOKS=(
+    /usr/lib/kernel/install.d/05-rpmostree.install
+    /usr/lib/kernel/install.d/50-dracut.install
+)
+
 disable_kernel_install_hooks() {
-    local hooks=(
-        /usr/lib/kernel/install.d/05-rpmostree.install
-        /usr/lib/kernel/install.d/50-dracut.install
-    )
-    for f in "${hooks[@]}"; do
+    for f in "${_KERNEL_HOOKS[@]}"; do
         [[ -f "${f}" ]] || continue
         mv "${f}" "${f}.bak"
         printf '%s\n' '#!/bin/sh' 'exit 0' >"${f}"
@@ -89,11 +93,7 @@ disable_kernel_install_hooks() {
 }
 
 restore_kernel_install_hooks() {
-    local hooks=(
-        /usr/lib/kernel/install.d/05-rpmostree.install
-        /usr/lib/kernel/install.d/50-dracut.install
-    )
-    for f in "${hooks[@]}"; do
+    for f in "${_KERNEL_HOOKS[@]}"; do
         [[ -f "${f}.bak" ]] && mv -f "${f}.bak" "${f}"
     done
 }

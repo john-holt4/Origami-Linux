@@ -10,7 +10,8 @@ RAW_CONFIG="${1:-{}}"
 CONFIG="${RAW_CONFIG}"
 
 # Try strict parse first; if it fails, attempt to decode JSON-encoded string,
-# then unescape backslash-escaped JSON, then trim to first valid JSON object as fallback
+# then unescape backslash-escaped JSON, sanitize control chars, and finally
+# trim to the outermost JSON object as fallback
 if ! jq -e . >/dev/null 2>&1 <<< "${CONFIG}"; then
   if jq -e 'type == "string"' >/dev/null 2>&1 <<< "${RAW_CONFIG}"; then
     CONFIG="$(jq -r 'fromjson' <<< "${RAW_CONFIG}" 2>/dev/null || true)"
@@ -19,14 +20,23 @@ if ! jq -e . >/dev/null 2>&1 <<< "${CONFIG}"; then
     CONFIG="$(printf '%b' "${RAW_CONFIG}" 2>/dev/null || true)"
   fi
   if ! jq -e . >/dev/null 2>&1 <<< "${CONFIG}"; then
-    CONFIG="$(printf '%s' "${RAW_CONFIG}" | sed -n 's/^[^{]*\({.*}\)[^}]*$/\1/p')"
+    CONFIG="$(printf '%s' "${RAW_CONFIG}" | tr -d '\000-\010\013\014\016-\037' 2>/dev/null || true)"
+  fi
+  if ! jq -e . >/dev/null 2>&1 <<< "${CONFIG}"; then
+    if [[ "${RAW_CONFIG}" == *"{"*"}"* ]]; then
+      TRIMMED="${RAW_CONFIG#*\{}"
+      TRIMMED="{${TRIMMED%\}*}}"
+      CONFIG="${TRIMMED}"
+    fi
   fi
 fi
 
 # Final validation
 jq -e . >/dev/null <<< "${CONFIG}" || {
   error "Invalid JSON config payload"
-  error "Raw payload (truncated): $(printf '%s' "${RAW_CONFIG}" | head -c 240)"
+  error "Raw payload length: ${#RAW_CONFIG}"
+  error "Raw payload head: $(printf '%s' "${RAW_CONFIG}" | head -c 240)"
+  error "Raw payload tail: $(printf '%s' "${RAW_CONFIG}" | tail -c 240)"
   exit 1
 }
 

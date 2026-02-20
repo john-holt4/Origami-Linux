@@ -145,7 +145,7 @@ case "${BASE_TYPE}" in
 esac
 
 # Prepare Package Lists
-REMOVE_PACKAGES=(kernel kernel-core kernel-modules kernel-modules-core kernel-modules-extra kernel-devel kernel-devel-matched)
+REMOVE_PACKAGES=(kernel kernel-core kernel-modules kernel-modules-core kernel-modules-extra kernel-devel)
 INSTALL_PACKAGES=(
     "kernel-${BASE_TYPE}"
     "kernel-${BASE_TYPE}-core"
@@ -154,10 +154,9 @@ INSTALL_PACKAGES=(
     "akmods"
     "kernel-devel"
     "kernel-headers"
-    "akmod-v4l2loopback"
 )
 [[ "${NVIDIA}" == true ]] && INSTALL_PACKAGES+=("kernel-${BASE_TYPE}-nvidia-open")
-TRANSIENT_PKGS+=("akmods" "kernel-devel" "kernel-headers" "akmod-v4l2loopback" "rpmfusion-free-release")
+TRANSIENT_PKGS+=("akmods" "kernel-devel" "kernel-headers" "rpmfusion-free-release")
 
 # Prepare Environment
 disable_hooks

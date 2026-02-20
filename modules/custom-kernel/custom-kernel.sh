@@ -1,24 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-log() {
-    local PREFIX="[custom-kernel]"
-    # local BOLD_CYAN='\033[1;36m'
-    # local RESET='\033[0m'
-    # echo -e "${BOLD_CYAN}${PREFIX}${RESET} $*"
-    echo -e "${PREFIX} $*"
-}
+log()   { echo "[custom-kernel] $*"; }
+error() { echo "[custom-kernel] Error: $*" >&2; }
 
-error() {
-    local PREFIX="[custom-kernel] Error:"
-    # local BOLD_RED='\033[1;31m'
-    # local RESET='\033[0m'
-    # echo -e "${BOLD_RED}${PREFIX}${RESET} $*"
-    echo -e "${PREFIX} $*"
-}
 log "Starting custom-kernel module..."
 
-# Read configuration from the first argument ($1) using jq
+# Parse configuration
 KERNEL_TYPE=$(echo "$1" | jq -r '.kernel // "cachyos-lto"')
 INITRAMFS=$(echo "$1" | jq -r '.initramfs // false')
 SIGNING_KEY=$(echo "$1" | jq -r '.sign.key // ""')
@@ -26,7 +14,7 @@ SIGNING_CERT=$(echo "$1" | jq -r '.sign.cert // ""')
 MOK_PASSWORD=$(echo "$1" | jq -r '.sign.["mok-password"] // ""')
 SECURE_BOOT=false
 
-# Checking key, cert and password. Can't continue without them
+# Validate signing config
 if [[ -z "${SIGNING_KEY}" && -z "${SIGNING_CERT}" && -z "${MOK_PASSWORD}" ]]; then
     log "SecureBoot signing disabled."
 elif [[ -f "${SIGNING_KEY}" && -f "${SIGNING_CERT}" && -n "${MOK_PASSWORD}" ]]; then
@@ -34,13 +22,13 @@ elif [[ -f "${SIGNING_KEY}" && -f "${SIGNING_CERT}" && -n "${MOK_PASSWORD}" ]]; 
     SECURE_BOOT=true
 else
     error "Invalid signing config:"
-    error "  sign.key:  ${SIGNING_KEY:-<empty>}"
-    error "  sign.cert:  ${SIGNING_CERT:-<empty>}"
+    error "  sign.key:          ${SIGNING_KEY:-<empty>}"
+    error "  sign.cert:         ${SIGNING_CERT:-<empty>}"
     error "  sign.mok-password: ${MOK_PASSWORD:-<empty>}"
     exit 1
 fi
 
-# Double check everything about keys and certs
+# Validate key and cert
 if [[ ${SECURE_BOOT} == true ]]; then
     openssl pkey -in "${SIGNING_KEY}" -noout >/dev/null 2>&1 \
         || { error "sign.key is not a valid private key"; exit 1; }
@@ -48,174 +36,69 @@ if [[ ${SECURE_BOOT} == true ]]; then
     openssl x509 -in "${SIGNING_CERT}" -noout >/dev/null 2>&1 \
         || { error "sign.cert is not a valid X509 cert"; exit 1; }
 
-    if ! diff -q \
+    diff -q \
         <(openssl pkey -in "${SIGNING_KEY}" -pubout) \
-        <(openssl x509 -in "${SIGNING_CERT}" -pubkey -noout); then
-        error "sign.key and sign.cert do not match"
-        exit 1
-    fi
+        <(openssl x509 -in "${SIGNING_CERT}" -pubkey -noout) >/dev/null \
+        || { error "sign.key and sign.cert do not match"; exit 1; }
 fi
 
-# Resolve kernel settings based on the kernel type
-COPR_REPOS=()
-KERNEL_PACKAGES=()
-EXTRA_PACKAGES=(
-    akmods
-)
+# Resolve kernel packages and COPR repo.
+# Kernel package names are perfectly consistent: kernel-{type}, kernel-{type}-core, etc.
+# Strip the -nvidia suffix if present and handle it as an add-on.
+NVIDIA=false
+if [[ "${KERNEL_TYPE}" == *-nvidia ]]; then
+    NVIDIA=true
+    BASE_TYPE="${KERNEL_TYPE%-nvidia}"
+else
+    BASE_TYPE="${KERNEL_TYPE}"
+fi
 
-case "${KERNEL_TYPE}" in
-cachyos-lto)
-    COPR_REPOS=(
-        bieszczaders/kernel-cachyos-lto
-    )
-    KERNEL_PACKAGES=(
-        kernel-cachyos-lto
-        kernel-cachyos-lto-core
-        kernel-cachyos-lto-modules
-        kernel-cachyos-lto-devel-matched
-    )
-    ;;
-cachyos-lto-nvidia)
-    COPR_REPOS=(
-        bieszczaders/kernel-cachyos-lto
-    )
-    KERNEL_PACKAGES=(
-        kernel-cachyos-lto
-        kernel-cachyos-lto-core
-        kernel-cachyos-lto-modules
-        kernel-cachyos-lto-devel-matched
-        kernel-cachyos-lto-nvidia-open
-    )
-    ;;
-cachyos-lts-lto)
-    COPR_REPOS=(
-        bieszczaders/kernel-cachyos-lto
-    )
-    KERNEL_PACKAGES=(
-        kernel-cachyos-lts-lto
-        kernel-cachyos-lts-lto-core
-        kernel-cachyos-lts-lto-modules
-        kernel-cachyos-lts-lto-devel-matched
-    )
-    ;;
-cachyos-lts-lto-nvidia)
-    COPR_REPOS=(
-        bieszczaders/kernel-cachyos-lto
-    )
-    KERNEL_PACKAGES=(
-        kernel-cachyos-lts-lto
-        kernel-cachyos-lts-lto-core
-        kernel-cachyos-lts-lto-modules
-        kernel-cachyos-lts-lto-devel-matched
-        kernel-cachyos-lts-lto-nvidia-open
-    )
-    ;;
-cachyos)
-    COPR_REPOS=(
-        bieszczaders/kernel-cachyos
-    )
-    KERNEL_PACKAGES=(
-        kernel-cachyos
-        kernel-cachyos-core
-        kernel-cachyos-modules
-        kernel-cachyos-devel-matched
-    )
-    ;;
-    cachyos-nvidia)
-    COPR_REPOS=(
-        bieszczaders/kernel-cachyos
-    )
-    KERNEL_PACKAGES=(
-        kernel-cachyos
-        kernel-cachyos-core
-        kernel-cachyos-modules
-        kernel-cachyos-devel-matched
-        kernel-cachyos-nvidia-open
-    )
-    ;;
-cachyos-rt)
-    COPR_REPOS=(
-        bieszczaders/kernel-cachyos
-    )
-    KERNEL_PACKAGES=(
-        kernel-cachyos-rt
-        kernel-cachyos-rt-core
-        kernel-cachyos-rt-modules
-        kernel-cachyos-rt-devel-matched
-    )
-    ;;
-cachyos-rt-nvidia)
-    COPR_REPOS=(
-        bieszczaders/kernel-cachyos
-    )
-    KERNEL_PACKAGES=(
-        kernel-cachyos-rt
-        kernel-cachyos-rt-core
-        kernel-cachyos-rt-modules
-        kernel-cachyos-rt-devel-matched
-        kernel-cachyos-rt-nvidia-open
-    )
-    ;;
-cachyos-lts)
-    COPR_REPOS=(
-        bieszczaders/kernel-cachyos
-    )
-    KERNEL_PACKAGES=(
-        kernel-cachyos-lts
-        kernel-cachyos-lts-core
-        kernel-cachyos-lts-modules
-        kernel-cachyos-lts-devel-matched
-    )
-    ;;
-cachyos-lts-nvidia)
-    COPR_REPOS=(
-        bieszczaders/kernel-cachyos
-    )
-    KERNEL_PACKAGES=(
-        kernel-cachyos-lts
-        kernel-cachyos-lts-core
-        kernel-cachyos-lts-modules
-        kernel-cachyos-lts-devel-matched
-        kernel-cachyos-lts-nvidia-open
-    )
-    ;;
-*)
-    error "Unsupported kernel type: ${KERNEL_TYPE}"
-    exit 1
-    ;;
+case "${BASE_TYPE}" in
+    cachyos-lto|cachyos-lts-lto)
+        COPR_REPO="bieszczaders/kernel-cachyos-lto"
+        ;;
+    cachyos|cachyos-rt|cachyos-lts)
+        COPR_REPO="bieszczaders/kernel-cachyos"
+        ;;
+    *)
+        error "Unsupported kernel type: ${KERNEL_TYPE}"
+        exit 1
+        ;;
 esac
 
-restore_kernel_install_hooks() {
-    local RPMOSTREE=/usr/lib/kernel/install.d/05-rpmostree.install
-    local DRACUT=/usr/lib/kernel/install.d/50-dracut.install
+KERNEL_PACKAGES=(
+    "kernel-${BASE_TYPE}"
+    "kernel-${BASE_TYPE}-core"
+    "kernel-${BASE_TYPE}-modules"
+    "kernel-${BASE_TYPE}-devel-matched"
+)
+[[ "${NVIDIA}" == true ]] && KERNEL_PACKAGES+=("kernel-${BASE_TYPE}-nvidia-open")
 
-    if [[ -f "${RPMOSTREE}.bak" ]]; then
-        mv -f "${RPMOSTREE}.bak" "${RPMOSTREE}"
-    fi
-
-    if [[ -f "${DRACUT}.bak" ]]; then
-        mv -f "${DRACUT}.bak" "${DRACUT}"
-    fi
-}
-
+# Kernel install hook helpers
 disable_kernel_install_hooks() {
-    local RPMOSTREE=/usr/lib/kernel/install.d/05-rpmostree.install
-    local DRACUT=/usr/lib/kernel/install.d/50-dracut.install
-
-    if [[ -f "${RPMOSTREE}" ]]; then
-        mv "${RPMOSTREE}" "${RPMOSTREE}.bak"
-        printf '%s\n' '#!/bin/sh' 'exit 0' >"${RPMOSTREE}"
-        chmod +x "${RPMOSTREE}"
-    fi
-
-    if [[ -f "${DRACUT}" ]]; then
-        mv "${DRACUT}" "${DRACUT}.bak"
-        printf '%s\n' '#!/bin/sh' 'exit 0' >"${DRACUT}"
-        chmod +x "${DRACUT}"
-    fi
+    local hooks=(
+        /usr/lib/kernel/install.d/05-rpmostree.install
+        /usr/lib/kernel/install.d/50-dracut.install
+    )
+    for f in "${hooks[@]}"; do
+        [[ -f "${f}" ]] || continue
+        mv "${f}" "${f}.bak"
+        printf '%s\n' '#!/bin/sh' 'exit 0' >"${f}"
+        chmod +x "${f}"
+    done
 }
 
-# Installing custom kernel
+restore_kernel_install_hooks() {
+    local hooks=(
+        /usr/lib/kernel/install.d/05-rpmostree.install
+        /usr/lib/kernel/install.d/50-dracut.install
+    )
+    for f in "${hooks[@]}"; do
+        [[ -f "${f}.bak" ]] && mv -f "${f}.bak" "${f}"
+    done
+}
+
+# Install custom kernel
 log "Temporarily disabling kernel install scripts."
 disable_kernel_install_hooks
 
@@ -230,15 +113,11 @@ dnf -y remove \
     kernel-devel-matched || true
 rm -rf /usr/lib/modules/* || true
 
-for repo in "${COPR_REPOS[@]}"; do
-    log "Enabling COPR repo: ${repo}"
-    dnf -y copr enable "${repo}"
-done
+log "Enabling COPR repo: ${COPR_REPO}"
+dnf -y copr enable "${COPR_REPO}"
 
 log "Installing kernel packages: ${KERNEL_PACKAGES[*]}"
-dnf -y install \
-    "${KERNEL_PACKAGES[@]}" \
-    "${EXTRA_PACKAGES[@]}"
+dnf -y install "${KERNEL_PACKAGES[@]}" akmods
 
 KERNEL_VERSION="$(rpm -q "${KERNEL_PACKAGES[0]}" --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}')" || exit 1
 log "Detected kernel version: ${KERNEL_VERSION}"
@@ -246,51 +125,41 @@ log "Detected kernel version: ${KERNEL_VERSION}"
 log "Restoring kernel install scripts."
 restore_kernel_install_hooks
 
-log "Cleaning up custom kernel repos."
-log "Cleaning up custom kernel repos."
+log "Cleaning up COPR repos."
 rm -f /etc/yum.repos.d/*copr*
 
-# Install Nvidia if needed
+# akmodsbuild helpers
 disable_akmodsbuild() {
     local AK="/usr/sbin/akmodsbuild"
-    local BAK="${AK}.backup"
 
     if [[ ! -f "${AK}" ]]; then
         error "akmodsbuild not found: ${AK}"
         return 1
     fi
 
-    cp -a "${AK}" "${BAK}" || return 1
-
-    # remove the problematic block
+    cp -a "${AK}" "${AK}.backup" || return 1
     sed -i '/if \[\[ -w \/var \]\] ; then/,/fi/d' "${AK}" || return 1
 }
 
 restore_akmodsbuild() {
     local AK="/usr/sbin/akmodsbuild"
-    local BAK="${AK}.backup"
-
-    if [[ -f "${BAK}" ]]; then
-        mv -f "${BAK}" "${AK}"
-    fi
+    [[ -f "${AK}.backup" ]] && mv -f "${AK}.backup" "${AK}"
 }
 
-log "Temporarily disabling akmodsbuild script for v4l2loopback."
+# Build and install v4l2loopback
+log "Temporarily disabling akmodsbuild for v4l2loopback."
 disable_akmodsbuild || exit 1
 
 log "Enabling RPM Fusion Free repo for v4l2loopback."
 dnf -y install \
-    https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
+    "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm"
 
-log "Building and installing v4l2loopback kernel module packages."
-dnf install -y --setopt=install_weak_deps=False --setopt=tsflags=noscripts \
-    akmod-v4l2loopback
+log "Building and installing v4l2loopback kernel module."
+dnf install -y --setopt=install_weak_deps=False --setopt=tsflags=noscripts akmod-v4l2loopback
 akmods --force --verbose --kernels "${KERNEL_VERSION}" --kmod "v4l2loopback"
 
-FAIL_LOG_GLOB=/var/cache/akmods/v4l2loopback/*-for-${KERNEL_VERSION}.failed.log
-
 shopt -s nullglob
-FAIL_LOGS=( ${FAIL_LOG_GLOB} )
+FAIL_LOGS=( /var/cache/akmods/v4l2loopback/*-for-${KERNEL_VERSION}.failed.log )
 shopt -u nullglob
 
 if (( ${#FAIL_LOGS[@]} )); then
@@ -299,7 +168,6 @@ if (( ${#FAIL_LOGS[@]} )); then
         cat "${f}" || log "Failed to read ${f}"
         log "--------------"
     done
-    log "Restoring akmodsbuild script."
     restore_akmodsbuild
     exit 1
 fi
@@ -308,47 +176,31 @@ log "Cleaning RPM Fusion Free repo."
 dnf -y remove rpmfusion-free-release
 rm -f /etc/yum.repos.d/rpmfusion-free*.repo
 
-log "Restoring akmodsbuild script."
+log "Restoring akmodsbuild."
 restore_akmodsbuild
 
-
-
-# Sign the kernel and modules
+# Sign kernel and modules for SecureBoot
 sign_kernel() {
-    local MODULE_ROOT="/usr/lib/modules/${KERNEL_VERSION}"
-    local VMLINUZ="${MODULE_ROOT}/vmlinuz"
+    local VMLINUZ="/usr/lib/modules/${KERNEL_VERSION}/vmlinuz"
+    local SIGNED_VMLINUZ
 
-    # Sign kernel
-    if [[ -f "${VMLINUZ}" ]]; then
-        log "Kernel image: ${VMLINUZ}"
+    [[ -f "${VMLINUZ}" ]] || { error "Kernel image not found: ${VMLINUZ}"; return 1; }
 
-        SIGNED_VMLINUZ="$(mktemp)"
+    log "Kernel image: ${VMLINUZ}"
+    SIGNED_VMLINUZ="$(mktemp)"
 
-        # Sign kernel into temp file
-        sbsign \
-            --key  "${SIGNING_KEY}" \
-            --cert "${SIGNING_CERT}" \
-            --output "${SIGNED_VMLINUZ}" \
-            "${VMLINUZ}"
+    sbsign --key "${SIGNING_KEY}" --cert "${SIGNING_CERT}" --output "${SIGNED_VMLINUZ}" "${VMLINUZ}"
 
-        # Verify signature before installing
-        if ! sbverify --cert "${SIGNING_CERT}" "${SIGNED_VMLINUZ}"; then
-            error "Kernel signature verification failed"
-            rm -f "${SIGNED_VMLINUZ}"
-            return 1
-        fi
-
-        log "Verification successful. Installing signed kernel."
-
-        # Atomically replace original kernel with signed one
-        install -m 0644 "${SIGNED_VMLINUZ}" "${VMLINUZ}"
+    if ! sbverify --cert "${SIGNING_CERT}" "${SIGNED_VMLINUZ}"; then
+        error "Kernel signature verification failed"
         rm -f "${SIGNED_VMLINUZ}"
-    else
-        error "Can't find kernel image: ${VMLINUZ}"
         return 1
     fi
 
-    # For final check later
+    log "Verification successful. Installing signed kernel."
+    install -m 0644 "${SIGNED_VMLINUZ}" "${VMLINUZ}"
+    rm -f "${SIGNED_VMLINUZ}"
+
     sha256sum "${VMLINUZ}" > /tmp/vmlinuz.sha
 }
 
@@ -356,10 +208,7 @@ sign_kernel_modules() {
     local MODULE_ROOT="/usr/lib/modules/${KERNEL_VERSION}"
     local SIGN_FILE="${MODULE_ROOT}/build/scripts/sign-file"
 
-    if [[ ! -x "${SIGN_FILE}" ]]; then
-        error "sign-file not found or not executable: ${SIGN_FILE}"
-        return 1
-    fi
+    [[ -x "${SIGN_FILE}" ]] || { error "sign-file not found or not executable: ${SIGN_FILE}"; return 1; }
 
     while IFS= read -r -d '' mod; do
         case "${mod}" in
@@ -395,14 +244,7 @@ create_mok_enroll_unit() {
     local TMP_DER
 
     TMP_DER="$(mktemp)"
-
-    openssl x509 \
-        -in "${SIGNING_CERT}" \
-        -outform DER \
-        -out "${TMP_DER}" || {
-            rm -f "${TMP_DER}"
-            return 1
-        }
+    openssl x509 -in "${SIGNING_CERT}" -outform DER -out "${TMP_DER}" || { rm -f "${TMP_DER}"; return 1; }
     install -D -m 0644 "${TMP_DER}" "${MOK_CERT}"
     rm -f "${TMP_DER}"
 
@@ -434,10 +276,10 @@ if [[ ${SECURE_BOOT} == true ]]; then
     sign_kernel_modules || exit 1
 
     log "Creating MOK enroll unit for first boot."
-    create_mok_enroll_unit  || exit 1
+    create_mok_enroll_unit || exit 1
 fi
 
-# Initramfs
+# Generate initramfs
 if [[ ${INITRAMFS} == true ]]; then
     log "Generating initramfs."
     TMP_INITRAMFS="$(mktemp)"
@@ -448,18 +290,15 @@ if [[ ${INITRAMFS} == true ]]; then
         --add ostree \
         -f "${TMP_INITRAMFS}" \
         -v || return 1
-
     install -D -m 0600 "${TMP_INITRAMFS}" "/lib/modules/${KERNEL_VERSION}/initramfs.img"
     rm -f "${TMP_INITRAMFS}"
 fi
 
-# Final checks to eliminate having a broken build
+# Final integrity check
 if [[ ${SECURE_BOOT} == true ]]; then
     sha256sum -c /tmp/vmlinuz.sha || { error "Kernel modified after signing."; exit 1; }
-    rm -f /tmp/vmlinux.sha
-    log "Kernel was not modified after signing."
+    rm -f /tmp/vmlinuz.sha
+    log "Kernel integrity check passed."
 fi
-
-
 
 log "Custom kernel installation complete."

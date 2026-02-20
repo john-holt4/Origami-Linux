@@ -8,6 +8,9 @@ log "Starting custom-kernel module..."
 
 CONFIG="${1:-{}}"
 
+# Strict JSON validation
+jq -e . >/dev/null <<< "${CONFIG}" || { error "Invalid JSON config payload"; exit 1; }
+
 # Single-pass config parse
 read -r KERNEL_TYPE INITRAMFS SIGNING_KEY SIGNING_CERT MOK_PASSWORD < <(
   jq -r '
@@ -114,7 +117,7 @@ log "Enabling COPR repo: ${COPR_REPO}"
 dnf -y copr enable "${COPR_REPO}"
 
 log "Installing kernel packages."
-dnf -y install "${KERNEL_PACKAGES[@]}" akmods
+dnf -y --setopt=install_weak_deps=False install "${KERNEL_PACKAGES[@]}" akmods
 
 KERNEL_VERSION="$(rpm -q "${KERNEL_PACKAGES[0]}" --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}')" || exit 1
 log "Detected kernel version: ${KERNEL_VERSION}"

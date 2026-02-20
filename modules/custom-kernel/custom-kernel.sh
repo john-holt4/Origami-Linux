@@ -76,6 +76,17 @@ cachyos-lto)
         kernel-cachyos-lto-devel-matched
     )
     ;;
+cachyos-lto-nvidia)
+    COPR_REPOS=(
+        bieszczaders/kernel-cachyos-lto
+    )
+    KERNEL_PACKAGES=(
+        kernel-cachyos-lto
+        kernel-cachyos-lto-core
+        kernel-cachyos-lto-modules
+        kernel-cachyos-lto-nvidia-open
+    )
+    ;;
 cachyos-lts-lto)
     COPR_REPOS=(
         bieszczaders/kernel-cachyos-lto

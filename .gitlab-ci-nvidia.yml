@@ -11,7 +11,7 @@ build-nvidia-image:
     IMAGE_NAME: "registry.gitlab.com/origami-linux/images/origami-nvidia"
   script:
     - bluebuild build --verbose --rechunk-clear-plan --build-chunked-oci --compression-format zstd --push ./recipes/nvidia.yml
-    - *install_crane
+    - !reference [.install-crane, script]
     - crane tag "$IMAGE_NAME:latest" cachy
 
 build-nvidia-iso:

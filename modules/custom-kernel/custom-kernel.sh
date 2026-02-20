@@ -9,9 +9,18 @@ log "Starting custom-kernel module..."
 RAW_CONFIG="${1:-{}}"
 CONFIG="${RAW_CONFIG}"
 
-# Try strict parse first; if it fails, trim to first valid JSON object as fallback
+# Try strict parse first; if it fails, attempt to decode JSON-encoded string,
+# then unescape backslash-escaped JSON, then trim to first valid JSON object as fallback
 if ! jq -e . >/dev/null 2>&1 <<< "${CONFIG}"; then
-  CONFIG="$(printf '%s' "${RAW_CONFIG}" | sed -n 's/^[^{]*\({.*}\)[^}]*$/\1/p')"
+  if jq -e 'type == "string"' >/dev/null 2>&1 <<< "${RAW_CONFIG}"; then
+    CONFIG="$(jq -r 'fromjson' <<< "${RAW_CONFIG}" 2>/dev/null || true)"
+  fi
+  if ! jq -e . >/dev/null 2>&1 <<< "${CONFIG}"; then
+    CONFIG="$(printf '%b' "${RAW_CONFIG}" 2>/dev/null || true)"
+  fi
+  if ! jq -e . >/dev/null 2>&1 <<< "${CONFIG}"; then
+    CONFIG="$(printf '%s' "${RAW_CONFIG}" | sed -n 's/^[^{]*\({.*}\)[^}]*$/\1/p')"
+  fi
 fi
 
 # Final validation

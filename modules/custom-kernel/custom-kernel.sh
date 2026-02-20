@@ -84,6 +84,7 @@ cachyos-lto-nvidia)
         kernel-cachyos-lto
         kernel-cachyos-lto-core
         kernel-cachyos-lto-modules
+        kernel-cachyos-lto-devel-matched
         kernel-cachyos-lto-nvidia-open
     )
     ;;

@@ -201,6 +201,17 @@ rm -f /etc/yum.repos.d/rpmfusion-free*.repo
 restore_ak
 
 # ---------------------------------------------------------------------------
+# SecureBoot signing (must happen before transient removal: sign-file lives
+# inside kernel-devel, which dnf auto-removes with devel-matched)
+# ---------------------------------------------------------------------------
+
+if [[ ${SB} == true ]]; then
+    log "Signing kernel.";           sign_kernel   || exit 1
+    log "Signing modules.";          sign_mods     || exit 1
+    log "Creating MOK enroll unit."; create_mok_unit || exit 1
+fi
+
+# ---------------------------------------------------------------------------
 # Remove transient build packages
 # ---------------------------------------------------------------------------
 
@@ -208,16 +219,6 @@ if (( ${#TRANSIENT[@]} )); then
     log "Removing transient packages: ${TRANSIENT[*]}"
     dnf -y remove "${TRANSIENT[@]}" || true
     TRANSIENT=()
-fi
-
-# ---------------------------------------------------------------------------
-# SecureBoot signing
-# ---------------------------------------------------------------------------
-
-if [[ ${SB} == true ]]; then
-    log "Signing kernel.";         sign_kernel   || exit 1
-    log "Signing modules.";        sign_mods     || exit 1
-    log "Creating MOK enroll unit."; create_mok_unit || exit 1
 fi
 
 # ---------------------------------------------------------------------------

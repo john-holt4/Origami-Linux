@@ -9,10 +9,7 @@ platforms:
   - linux/amd64
 
 modules:
-  - type: files
-    files:
-      - source: system
-        destination: /
+  - from-file: bootstrap.yml
 
   - type: custom-kernel
     source: local
@@ -40,6 +37,4 @@ modules:
       BUG_REPORT_URL: "https://gitlab.com/groups/origami-linux/-/issues"
       DEFAULT_HOSTNAME: origami
 
-  - type: initramfs
-
-  - type: signing
+  - from-file: finalize.yml

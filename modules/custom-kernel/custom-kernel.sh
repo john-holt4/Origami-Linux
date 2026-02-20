@@ -6,6 +6,49 @@ set -euo pipefail
 log()   { echo "[custom-kernel] $*"; }
 error() { echo "[custom-kernel] Error: $*" >&2; }
 
+# Build-only packages we install temporarily and remove in a finalizer to keep
+# the resulting image lean.
+TRANSIENT_PACKAGES=()
+AKMODSBUILD_PATCHED=false
+
+add_transient_packages() {
+    local pkg
+    for pkg in "$@"; do
+        TRANSIENT_PACKAGES+=("${pkg}")
+    done
+}
+
+final_cleanup() {
+    local rc=$?
+    local do_restore=true
+
+    # During normal flow, akmodsbuild is restored before cleanup runs.
+    # If we failed before restoration, put it back here to avoid persisting patch state.
+    if [[ "${AKMODSBUILD_PATCHED}" == true ]]; then
+        log "Finalizer: restoring akmodsbuild backup."
+        restore_akmodsbuild || do_restore=false
+    fi
+
+    # Always try to remove build-time packages and clean metadata/cache.
+    # Keep this best-effort so we preserve the original failure code.
+    if (( ${#TRANSIENT_PACKAGES[@]} )); then
+        log "Finalizer: removing transient build packages: ${TRANSIENT_PACKAGES[*]}"
+        dnf -y remove "${TRANSIENT_PACKAGES[@]}" || true
+    fi
+    log "Finalizer: cleaning DNF caches and metadata."
+    dnf -y clean all || true
+    rm -rf /var/cache/dnf/* /var/tmp/dnf-* || true
+
+    if [[ ${do_restore} == false && ${rc} -eq 0 ]]; then
+        rc=1
+        error "Finalizer could not restore akmodsbuild backup."
+    fi
+
+    exit "${rc}"
+}
+
+trap final_cleanup EXIT
+
 log "Starting custom-kernel module..."
 
 # ---------------------------------------------------------------------------
@@ -155,8 +198,9 @@ log "Enabling COPR repo: ${COPR_REPO}"
 dnf -y copr enable "${COPR_REPO}"
 
 log "Installing kernel packages: ${KERNEL_PACKAGES[*]}"
-# akmods is included here as it is required later for building out-of-tree modules
-dnf -y install "${KERNEL_PACKAGES[@]}" akmods
+# akmods/kernel-devel/kernel-headers are only needed at build time for akmods.
+dnf -y install "${KERNEL_PACKAGES[@]}" akmods kernel-devel kernel-headers
+add_transient_packages akmods kernel-devel kernel-headers
 
 # Query the installed kernel package to get the exact version string used by
 # rpm (e.g. 6.9.3-1.cachyos.x86_64). This is needed for akmods and dracut.
@@ -188,12 +232,16 @@ disable_akmodsbuild() {
     cp -a "${AK}" "${AK}.backup" || return 1
     # Remove the problematic /var writability check block from the script
     sed -i '/if \[\[ -w \/var \]\] ; then/,/fi/d' "${AK}" || return 1
+    AKMODSBUILD_PATCHED=true
 }
 
 restore_akmodsbuild() {
     local AK="/usr/sbin/akmodsbuild"
     # Restore from backup only if one exists
-    [[ -f "${AK}.backup" ]] && mv -f "${AK}.backup" "${AK}"
+    if [[ -f "${AK}.backup" ]]; then
+        mv -f "${AK}.backup" "${AK}"
+    fi
+    AKMODSBUILD_PATCHED=false
 }
 
 # ---------------------------------------------------------------------------
@@ -209,11 +257,13 @@ disable_akmodsbuild || exit 1
 log "Enabling RPM Fusion Free repo for v4l2loopback."
 dnf -y install \
     "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm"
+add_transient_packages rpmfusion-free-release
 
 log "Building and installing v4l2loopback kernel module."
 # --setopt=tsflags=noscripts prevents kernel-install hooks from running during
 # the akmod source package install, which would fail in the container
 dnf install -y --setopt=install_weak_deps=False --setopt=tsflags=noscripts akmod-v4l2loopback
+add_transient_packages akmod-v4l2loopback
 # Trigger the actual kernel module build for our specific kernel version
 akmods --force --verbose --kernels "${KERNEL_VERSION}" --kmod "v4l2loopback"
 
@@ -234,9 +284,9 @@ if (( ${#FAIL_LOGS[@]} )); then
     exit 1
 fi
 
-# Remove RPM Fusion so it doesn't persist into the final image
-log "Cleaning RPM Fusion Free repo."
-dnf -y remove rpmfusion-free-release
+# Remove RPM Fusion repo files so they don't persist into the final image.
+# Package removal is handled by the global finalizer.
+log "Cleaning RPM Fusion Free repo files."
 rm -f /etc/yum.repos.d/rpmfusion-free*.repo
 
 log "Restoring akmodsbuild."

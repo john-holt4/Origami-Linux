@@ -30,7 +30,6 @@ modules:
         - terra-release
         - v4l-utils
         - origami-update-applet
-        - oru
         - fish
         - lazygit
         - helix

@@ -77,7 +77,6 @@ fastfetch() {
 }
 
 # --- Modern replacements -----------------------------------------------------
-alias vim='nvim'
 alias htop='btop'
 alias update='topgrade'
 alias docker='podman'
@@ -115,7 +114,7 @@ _register_uutils_aliases
 # --- Friendly migration nags -------------------------------------------------
 # We must unalias these first to prevent 'syntax error' if they are already
 # aliased elsewhere (e.g. grep='grep --color').
-unalias tmux find grep nano git ps du 2>/dev/null
+unalias vim tmux find grep nano git ps du 2>/dev/null
 
 tmux() {
     _nag_and_exec '🌀 Tip: Try using "zellij or byobu" for a modern multiplexing experience.' tmux "$@"
@@ -146,7 +145,7 @@ du() {
 }
 
 vim() {
-    _nag_and_exec '📝 Tip: Try using Helix next time: run "hx" (instead of vim).' vim "$@"
+    _nag_and_exec '📝 Tip: Try using Helix next time: run "hx" (instead of vim).' nvim "$@"
 }
 
 nvim() {

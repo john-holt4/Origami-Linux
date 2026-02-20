@@ -39,9 +39,27 @@ restore_hooks() {
 
 disable_ak() {
     local AK=/usr/sbin/akmodsbuild
+    local PATTERN='if [[ -w /var ]] ; then'
     [[ -f ${AK} ]] || { err "akmodsbuild not found"; return 1; }
+
+    # Pre-check: make sure the root-guard block we intend to remove actually exists.
+    # If it doesn't, upstream has changed akmodsbuild and the sed below would silently
+    # do nothing, causing akmods to abort later with a confusing "Not to be used as root" error.
+    if ! grep -qF "${PATTERN}" "${AK}"; then
+        err "akmodsbuild: root-check pattern not found — upstream may have changed the script. Manual inspection of ${AK} required."
+        return 1
+    fi
+
     cp -a "${AK}" "${AK}.backup"
     sed -i '/if \[\[ -w \/var \]\] ; then/,/fi/d' "${AK}"
+
+    # Post-check: verify the block is actually gone after patching.
+    if grep -qF "${PATTERN}" "${AK}"; then
+        err "akmodsbuild: sed patch did not remove the root-check block — the file is unchanged."
+        restore_ak
+        return 1
+    fi
+
     AK_PATCHED=true
 }
 

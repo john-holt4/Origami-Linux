@@ -6,6 +6,13 @@
   - export COSIGN_PRIVATE_KEY=$(cat .secure_files/cosign.key)
   - echo "Logging in to $CI_REGISTRY..."
   - echo $CI_REGISTRY_PASSWORD | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+
+# --- Reusable crane install steps ---
+.install_crane: &install_crane
+  - curl -fsSL -o /tmp/crane.tgz https://github.com/google/go-containerregistry/releases/latest/download/go-containerregistry_Linux_x86_64.tar.gz
+  - tar -xzf /tmp/crane.tgz -C /tmp crane
+  - install -m 0755 /tmp/crane /usr/local/bin/crane
+
 .bluebuild-job-template:
   interruptible: true
   tags:
@@ -23,3 +30,46 @@
     S3_ENDPOINT_URL: "https://eu-1.cdn77-storage.com"
   before_script:
     - *setup_env
+
+# --- Reusable ISO build/upload/purge job ---
+# Concrete jobs need only provide:
+#   variables:
+#     ISO_NAME: "my-image-x86_64.iso"
+#     IMAGE_NAME: "registry.gitlab.com/origami-linux/images/my-image"
+.iso-job-template:
+  extends: .bluebuild-job-template
+  stage: iso
+  before_script:
+    - !reference [.bluebuild-job-template, before_script]
+    - echo "Installing AWS CLI..."
+    - dnf install -y awscli2
+  script:
+    # Build ISO
+    - bluebuild generate-iso --secure-boot-url https://gitlab.com/origami-linux/images/-/raw/main/MOK.der --enrollment-password origami --iso-name $ISO_NAME image $IMAGE_NAME
+
+    # Generate SHA256
+    - sha256sum $ISO_NAME | tee $ISO_NAME.sha256
+
+    # Print SHA256 in logs
+    - echo "================ ISO SHA256 ================"
+    - cat $ISO_NAME.sha256
+    - echo "============================================"
+
+    # Upload ISO + checksum
+    - export AWS_ACCESS_KEY_ID=$S3_ACCESS_KEY
+    - export AWS_SECRET_ACCESS_KEY=$S3_SECRET_KEY
+    - aws s3 cp $ISO_NAME s3://origami-linux/$ISO_NAME --endpoint-url $S3_ENDPOINT_URL
+    - aws s3 cp $ISO_NAME.sha256 s3://origami-linux/$ISO_NAME.sha256 --endpoint-url $S3_ENDPOINT_URL
+
+    # Purge CDN (ISO + checksum)
+    - |
+      curl -X POST "https://api.cdn77.com/v3/cdn/$CDN_ID/job/purge/paths" \
+        -H "Authorization: Bearer $CDN77_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d "{\"paths\": [\"/$ISO_NAME\", \"/$ISO_NAME.sha256\"]}"
+  artifacts:
+    name: "origami-iso-checksums-$CI_COMMIT_SHA"
+    when: always
+    expire_in: 2 years
+    paths:
+      - $ISO_NAME.sha256

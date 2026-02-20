@@ -30,7 +30,6 @@ modules:
         - terra-release
         - v4l-utils
         - origami-update-applet
-        - oru
         - fish
         - lazygit
         - helix
@@ -84,7 +83,6 @@ modules:
         - gnome-system-monitor
         - ark
         - htop
-        - just
         - toolbox
         - google-noto-color-emoji-fonts
 

@@ -29,6 +29,16 @@ if ! jq -e . >/dev/null 2>&1 <<< "${CONFIG}"; then
       CONFIG="${TRIMMED}"
     fi
   fi
+  if ! jq -e . >/dev/null 2>&1 <<< "${CONFIG}"; then
+    # Repair common "extra trailing brace" payloads by trimming suffix braces
+    if [[ "${CONFIG}" == *"}" ]]; then
+      MAX_TRIMS=3
+      while (( MAX_TRIMS > 0 )) && ! jq -e . >/dev/null 2>&1 <<< "${CONFIG}"; do
+        CONFIG="${CONFIG%}}"
+        MAX_TRIMS=$((MAX_TRIMS - 1))
+      done
+    fi
+  fi
 fi
 
 # Final validation

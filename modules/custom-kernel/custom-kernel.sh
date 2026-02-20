@@ -249,6 +249,31 @@ restore_kernel_install_hooks
 log "Cleaning up custom kernel repos."
 rm -f /etc/yum.repos.d/*copr*
 
+# Install Nvidia if needed
+disable_akmodsbuild() {
+    local AK="/usr/sbin/akmodsbuild"
+    local BAK="${AK}.backup"
+
+    if [[ ! -f "${AK}" ]]; then
+        error "akmodsbuild not found: ${AK}"
+        return 1
+    fi
+
+    cp -a "${AK}" "${BAK}" || return 1
+
+    # remove the problematic block
+    sed -i '/if \[\[ -w \/var \]\] ; then/,/fi/d' "${AK}" || return 1
+}
+
+restore_akmodsbuild() {
+    local AK="/usr/sbin/akmodsbuild"
+    local BAK="${AK}.backup"
+
+    if [[ -f "${BAK}" ]]; then
+        mv -f "${BAK}" "${AK}"
+    fi
+}
+
 log "Temporarily disabling akmodsbuild script for v4l2loopback."
 disable_akmodsbuild || exit 1
 

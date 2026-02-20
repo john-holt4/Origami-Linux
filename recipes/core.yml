@@ -84,7 +84,6 @@ modules:
         - gnome-system-monitor
         - ark
         - htop
-        - nvtop
         - just
         - toolbox
         - google-noto-color-emoji-fonts

@@ -34,11 +34,6 @@ modules:
 
   - from-file: core.yml
 
-  - type: dnf
-    install:
-      packages:
-        - nvtop
-
   - type: os-release
     properties:
       ID: origami-test

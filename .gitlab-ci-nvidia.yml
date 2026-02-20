@@ -3,6 +3,7 @@ include:
 stages:
   - build
   - iso
+
 build-nvidia-image:
   extends: .bluebuild-job-template
   stage: build
@@ -10,47 +11,11 @@ build-nvidia-image:
     IMAGE_NAME: "registry.gitlab.com/origami-linux/images/origami-nvidia"
   script:
     - bluebuild build --verbose --rechunk-clear-plan --build-chunked-oci --compression-format zstd --push ./recipes/nvidia.yml
-    - curl -fsSL -o /tmp/crane.tgz https://github.com/google/go-containerregistry/releases/latest/download/go-containerregistry_Linux_x86_64.tar.gz
-    - tar -xzf /tmp/crane.tgz -C /tmp crane
-    - install -m 0755 /tmp/crane /usr/local/bin/crane
+    - *install_crane
     - crane tag "$IMAGE_NAME:latest" cachy
+
 build-nvidia-iso:
-  extends: .bluebuild-job-template
-  stage: iso
-  before_script:
-    - !reference [.bluebuild-job-template, before_script]
-    - echo "Installing AWS CLI..."
-    - dnf install -y awscli2
+  extends: .iso-job-template
   variables:
     ISO_NAME: "origami-nvidia-x86_64.iso"
     IMAGE_NAME: "registry.gitlab.com/origami-linux/images/origami-nvidia"
-  script:
-    # Build ISO
-    - bluebuild generate-iso --secure-boot-url https://gitlab.com/origami-linux/images/-/raw/main/MOK.der --enrollment-password origami --iso-name $ISO_NAME image $IMAGE_NAME
-
-    # Generate SHA256
-    - sha256sum $ISO_NAME | tee $ISO_NAME.sha256
-
-    # Print SHA256 in logs
-    - echo "================ ISO SHA256 ================"
-    - cat $ISO_NAME.sha256
-    - echo "============================================"
-
-    # Upload ISO + checksum
-    - export AWS_ACCESS_KEY_ID=$S3_ACCESS_KEY
-    - export AWS_SECRET_ACCESS_KEY=$S3_SECRET_KEY
-    - aws s3 cp $ISO_NAME s3://origami-linux/$ISO_NAME --endpoint-url $S3_ENDPOINT_URL
-    - aws s3 cp $ISO_NAME.sha256 s3://origami-linux/$ISO_NAME.sha256 --endpoint-url $S3_ENDPOINT_URL
-
-    # Purge CDN (ISO + checksum)
-    - |
-      curl -X POST "https://api.cdn77.com/v3/cdn/$CDN_ID/job/purge/paths" \
-        -H "Authorization: Bearer $CDN77_API_KEY" \
-        -H "Content-Type: application/json" \
-        -d "{\"paths\": [\"/$ISO_NAME\", \"/$ISO_NAME.sha256\"]}"
-  artifacts:
-    name: "origami-iso-checksums-$CI_COMMIT_SHA"
-    when: always
-    expire_in: 2 years
-    paths:
-      - $ISO_NAME.sha256

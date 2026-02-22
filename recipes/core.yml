@@ -72,6 +72,7 @@ modules:
         - cachyos-settings
         - scx-scheds
         - scx-tools
+        - rclone
         - repo: copr:copr.fedorainfracloud.org:lilay:tealdeer
           packages:
             - tealdeer

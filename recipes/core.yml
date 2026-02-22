@@ -30,6 +30,7 @@ modules:
         - https://gitlab.com/api/v4/projects/79678744/packages/generic/noctua/latest/noctua.fc%OS_VERSION%.x86_64.rpm
         - https://gitlab.com/api/v4/projects/79688301/packages/generic/cosmic-calculator/latest/cosmic-calculator.fc%OS_VERSION%.x86_64.rpm
         - https://gitlab.com/api/v4/projects/79692853/packages/generic/cosmic-ext-storage/latest/cosmic-ext-storage.fc%OS_VERSION%.x86_64.rpm
+        - https://gitlab.com/api/v4/projects/79697288/packages/generic/cosmic-ext-applet-sysinfo/latest/cosmic-ext-applet-sysinfo.fc%OS_VERSION%.x86_64.rpm
         - terra-release
         - v4l-utils
         - origami-update-applet

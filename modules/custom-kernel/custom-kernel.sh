@@ -1,319 +1,196 @@
-#!/bin/sh
-set -eu
+#!/usr/bin/env bash
+set -euo pipefail
 
-log() { echo "[custom-kernel] $*"; }
-err() { echo "[custom-kernel] Error: $*" >&2; }
-
-TRANSIENT=""
-AK_PATCHED=false
-
-cleanup() {
-    rc=$?
-    [ "$AK_PATCHED" = "true" ] && restore_ak
-    log "Cleaning DNF caches."
-    dnf -y clean all || true
-    rm -rf /var/cache/dnf/* /var/tmp/dnf-* || true
-    exit "${rc}"
+log() {
+    local PREFIX="[custom-kernel]"
+    echo -e "${PREFIX} $*"
 }
 
-disable_hooks() {
-    for f in \
-        /usr/lib/kernel/install.d/05-rpmostree.install \
-        /usr/lib/kernel/install.d/50-dracut.install
-    do
-        [ -f "${f}" ] || continue
-        mv "${f}" "${f}.bak"
-        printf '#!/bin/sh\nexit 0\n' >"${f}"
-        chmod +x "${f}"
+error() {
+    local PREFIX="[custom-kernel] Error:"
+    echo -e "${PREFIX} $*"
+}
+
+log "Starting custom-kernel module..."
+
+# Read configuration
+KERNEL_TYPE=$(echo "$1" | jq -r '.kernel // "cachyos-lto"')
+INITRAMFS=$(echo "$1" | jq -r '.initramfs // false')
+NVIDIA=$(echo "$1" | jq -r '.nvidia // false')
+SIGNING_KEY=$(echo "$1" | jq -r '.sign.key // ""')
+SIGNING_CERT=$(echo "$1" | jq -r '.sign.cert // ""')
+MOK_PASSWORD=$(echo "$1" | jq -r '.sign["mok-password"] // ""')
+SECURE_BOOT=false
+
+# Validating signing config
+if [[ -z "${SIGNING_KEY}" && -z "${SIGNING_CERT}" && -z "${MOK_PASSWORD}" ]]; then
+    log "SecureBoot signing disabled."
+elif [[ -f "${SIGNING_KEY}" && -f "${SIGNING_CERT}" && -n "${MOK_PASSWORD}" ]]; then
+    log "SecureBoot signing enabled."
+    SECURE_BOOT=true
+else
+    error "Invalid signing config."
+    exit 1
+fi
+
+# Double check keys and certs
+if [[ ${SECURE_BOOT} == true ]]; then
+    openssl pkey -in "${SIGNING_KEY}" -noout >/dev/null 2>&1 || { error "Invalid private key"; exit 1; }
+    openssl x509 -in "${SIGNING_CERT}" -noout >/dev/null 2>&1 || { error "Invalid X509 cert"; exit 1; }
+fi
+
+# Resolve kernel and COPR settings
+case "${KERNEL_TYPE}" in
+cachyos-lto | cachyos-lts-lto)
+    COPR_REPOS=("bieszczaders/kernel-cachyos-lto")
+    BASE="cachyos-lto"
+    ;;
+cachyos | cachyos-rt | cachyos-lts)
+    COPR_REPOS=("bieszczaders/kernel-cachyos")
+    BASE="cachyos"
+    ;;
+*)
+    error "Unsupported kernel type: ${KERNEL_TYPE}"
+    exit 1
+    ;;
+esac
+
+# Build package list dynamically
+KERNEL_PACKAGES=(
+    "kernel-${BASE}"
+    "kernel-${BASE}-core"
+    "kernel-${BASE}-modules"
+    "kernel-${BASE}-devel-matched"
+)
+
+# Helper functions for hooks
+disable_kernel_install_hooks() {
+    for f in /usr/lib/kernel/install.d/05-rpmostree.install /usr/lib/kernel/install.d/50-dracut.install; do
+        [[ -f "$f" ]] && { mv "$f" "$f.bak"; printf '%s\n' '#!/bin/sh' 'exit 0' >"$f"; chmod +x "$f"; }
     done
 }
 
-restore_hooks() {
-    for f in \
-        /usr/lib/kernel/install.d/05-rpmostree.install \
-        /usr/lib/kernel/install.d/50-dracut.install
-    do
-        [ -f "${f}.bak" ] && mv -f "${f}.bak" "${f}"
+restore_kernel_install_hooks() {
+    for f in /usr/lib/kernel/install.d/05-rpmostree.install /usr/lib/kernel/install.d/50-dracut.install; do
+        [[ -f "$f.bak" ]] && mv -f "$f.bak" "$f"
     done
 }
 
-disable_ak() {
-    local AK PATTERN
-    AK=/usr/sbin/akmodsbuild
-    PATTERN='if [[ -w /var ]] ; then'
-    [ -f "${AK}" ] || { err "akmodsbuild not found"; return 1; }
+# 1. Install Kernel
+log "Removing default kernel packages."
+disable_kernel_install_hooks
+dnf -y remove kernel kernel-core kernel-modules kernel-modules-core kernel-modules-extra kernel-devel kernel-devel-matched || true
+rm -rf /usr/lib/modules/* || true
 
-    # Pre-check: make sure the root-guard block we intend to remove actually exists.
-    # If it doesn't, upstream has changed akmodsbuild and the sed below would silently
-    # do nothing, causing akmods to abort later with a confusing "Not to be used as root" error.
-    if ! grep -qF "${PATTERN}" "${AK}"; then
-        err "akmodsbuild: root-check pattern not found — upstream may have changed the script. Manual inspection of ${AK} required."
-        return 1
-    fi
+for repo in "${COPR_REPOS[@]}"; do
+    dnf -y copr enable "${repo}"
+done
 
-    cp -a "${AK}" "${AK}.backup"
-    sed -i '/if \[\[ -w \/var \]\] ; then/,/fi/d' "${AK}"
+log "Installing kernel packages..."
+dnf -y install "${KERNEL_PACKAGES[@]}" akmods
 
-    # Post-check: verify the block is actually gone after patching.
-    if grep -qF "${PATTERN}" "${AK}"; then
-        err "akmodsbuild: sed patch did not remove the root-check block — the file is unchanged."
-        restore_ak
-        return 1
-    fi
+KERNEL_VERSION="$(rpm -q "${KERNEL_PACKAGES[1]}" --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}')"
+log "Detected kernel version: ${KERNEL_VERSION}"
 
-    AK_PATCHED=true
-}
+# 2. NVIDIA Implementation
+if [[ ${NVIDIA} == true ]]; then
+    log "Configuring NVIDIA Drivers..."
 
-restore_ak() {
-    [ -f /usr/sbin/akmodsbuild.backup ] && mv -f /usr/sbin/akmodsbuild.backup /usr/sbin/akmodsbuild
-    AK_PATCHED=false
-}
+    # Enable essential repos for userspace drivers
+    dnf -y copr enable bieszczaders/kernel-cachyos-addons
+    curl -fsSL https://negativo17.org/repos/fedora-nvidia.repo -o /etc/yum.repos.d/fedora-nvidia.repo
 
-sign_kernel() {
-    local vmlinuz tmp
-    vmlinuz="/usr/lib/modules/${KVER}/vmlinuz"
-    [ -f "${vmlinuz}" ] || { err "Kernel not found: ${vmlinuz}"; return 1; }
-    tmp="$(mktemp)"
-    sbsign --key "${KEY}" --cert "${CERT}" --output "${tmp}" "${vmlinuz}"
-    sbverify --cert "${CERT}" "${tmp}" || { rm -f "${tmp}"; err "Signature verification failed"; return 1; }
-    install -m 0644 "${tmp}" "${vmlinuz}"
-    rm -f "${tmp}"
-    sha256sum "${vmlinuz}" >/tmp/vmlinuz.sha
-}
+    # Patch akmods for root build
+    sed -i.backup '/if \[\[ -w \/var \]\] ; then/,/fi/d' /usr/sbin/akmodsbuild
 
-sign_mods() {
-    local sf tmplist raw
-    sf="/usr/lib/modules/${KVER}/build/scripts/sign-file"
-    [ -x "${sf}" ] || { err "sign-file not found: ${sf}"; return 1; }
-    _sign() { "${sf}" sha256 "${KEY}" "${CERT}" "$1"; }
+    log "Installing NVIDIA userspace and kernel modules..."
+    # We install the open-source kernel module AND the userspace driver libraries
+    dnf install -y --setopt=install_weak_deps=False \
+        "kernel-${BASE}-nvidia-open" \
+        nvidia-driver \
+        nvidia-driver-libs \
+        nvidia-driver-libs.i686 \
+        nvidia-settings \
+        nvidia-kmod-common \
+        nvidia-container-toolkit \
+        libva-nvidia-driver
 
-    tmplist="$(mktemp)"
-    find "/usr/lib/modules/${KVER}" -type f \(    \
-        -name "*.ko"     -o -name "*.ko.xz"       \
-        -o -name "*.ko.zst" -o -name "*.ko.gz"    \
-    \) >"${tmplist}"
+    log "Building NVIDIA kmod via akmods..."
+    akmods --force --verbose --kernels "${KERNEL_VERSION}" --kmod "nvidia"
 
-    while IFS= read -r mod; do
+    # Set persistent Kernel Arguments for NVIDIA
+    log "Injecting NVIDIA kernel arguments..."
+    mkdir -p /usr/lib/bootc/kargs.d
+    cat <<EOF > /usr/lib/bootc/kargs.d/90-nvidia.toml
+kargs = [
+    "rd.driver.blacklist=nouveau",
+    "modprobe.blacklist=nouveau",
+    "rd.driver.pre=nvidia",
+    "nvidia-drm.modeset=1",
+    "nvidia-drm.fbdev=1"
+]
+EOF
+
+    # Modprobe config to ensure nouveau doesn't load
+    mkdir -p /etc/modprobe.d
+    echo "blacklist nouveau" > /etc/modprobe.d/nvidia.conf
+    echo "options nvidia-drm modeset=1 fbdev=1" >> /etc/modprobe.d/nvidia.conf
+
+    # Restore akmodsbuild
+    [[ -f /usr/sbin/akmodsbuild.backup ]] && mv -f /usr/sbin/akmodsbuild.backup /usr/sbin/akmodsbuild
+fi
+
+# 3. Signing Logic
+if [[ ${SECURE_BOOT} == true ]]; then
+    log "Signing Kernel and Modules..."
+
+    # Kernel signing
+    VMLINUZ="/usr/lib/modules/${KERNEL_VERSION}/vmlinuz"
+    TMP_VMLINUZ=$(mktemp)
+    sbsign --key "${SIGNING_KEY}" --cert "${SIGNING_CERT}" --output "${TMP_VMLINUZ}" "${VMLINUZ}"
+    install -m 0644 "${TMP_VMLINUZ}" "${VMLINUZ}"
+    rm -f "${TMP_VMLINUZ}"
+
+    # Modules signing
+    SIGN_FILE="/usr/lib/modules/${KERNEL_VERSION}/build/scripts/sign-file"
+    find "/usr/lib/modules/${KERNEL_VERSION}" -type f -name "*.ko*" | while read -r mod; do
         case "${mod}" in
-        *.ko)
-            _sign "${mod}" || { rm -f "${tmplist}"; return 1; }
-            ;;
-        *.ko.xz)
-            raw="${mod%.xz}"
-            xz -dq "${mod}"
-            _sign "${raw}" || { rm -f "${tmplist}"; return 1; }
-            xz -zq "${raw}"
-            ;;
-        *.ko.zst)
-            raw="${mod%.zst}"
-            zstd -dq --rm "${mod}"
-            _sign "${raw}" || { rm -f "${tmplist}"; return 1; }
-            zstd -q --rm "${raw}"
-            ;;
-        *.ko.gz)
-            raw="${mod%.gz}"
-            gunzip -q "${mod}"
-            _sign "${raw}" || { rm -f "${tmplist}"; return 1; }
-            gzip -q "${raw}"
-            ;;
+            *.ko)   "${SIGN_FILE}" sha256 "${SIGNING_KEY}" "${SIGNING_CERT}" "${mod}" ;;
+            *.ko.xz) xz -d "$mod"; "${SIGN_FILE}" sha256 "${SIGNING_KEY}" "${SIGNING_CERT}" "${mod%.xz}"; xz -z "${mod%.xz}" ;;
+            *.ko.zst) zstd -d --rm "$mod"; "${SIGN_FILE}" sha256 "${SIGNING_KEY}" "${SIGNING_CERT}" "${mod%.zst}"; zstd -q --rm "${mod%.zst}" ;;
         esac
-    done <"${tmplist}"
+    done
 
-    rm -f "${tmplist}"
-}
+    # MOK Enrollment Service
+    MOK_CERT="/usr/share/cert/MOK.der"
+    mkdir -p /usr/share/cert
+    openssl x509 -in "${SIGNING_CERT}" -outform DER -out "${MOK_CERT}"
 
-create_mok_unit() {
-    local mok tmp
-    mok=/usr/share/cert/MOK.der
-    tmp="$(mktemp)"
-    openssl x509 -in "${CERT}" -outform DER -out "${tmp}" || { rm -f "${tmp}"; return 1; }
-    install -D -m 0644 "${tmp}" "${mok}"; rm -f "${tmp}"
-    install -D -m 0644 /dev/stdin /usr/lib/systemd/system/mok-enroll.service <<EOF
+    cat <<EOF > /usr/lib/systemd/system/mok-enroll.service
 [Unit]
 Description=Enroll MOK key on first boot
-ConditionPathExists=${mok}
+ConditionPathExists=${MOK_CERT}
 ConditionPathExists=!/var/.mok-enrolled
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c '(echo "${MOK_PASS}"; echo "${MOK_PASS}") | mokutil --import "${mok}"'
+ExecStart=/bin/sh -c '(echo "${MOK_PASSWORD}"; echo "${MOK_PASSWORD}") | mokutil --import "${MOK_CERT}"'
 ExecStartPost=/usr/bin/touch /var/.mok-enrolled
 RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
 EOF
-    systemctl -f enable mok-enroll.service
-    log "Enabled mok-enroll.service"
-}
-
-trap cleanup EXIT
-log "Starting custom-kernel module..."
-
-# ---------------------------------------------------------------------------
-# Config
-# ---------------------------------------------------------------------------
-
-jq_out=$(printf '%s' "$1" | jq -r '[
-    .kernel // "cachyos-lto",
-    (.initramfs // false | tostring),
-    (.sign.key // ""),
-    (.sign.cert // ""),
-    (.sign["mok-password"] // "")
-] | @tsv')
-
-KTYPE=$(printf '%s' "$jq_out"    | cut -f1)
-INITRAMFS=$(printf '%s' "$jq_out" | cut -f2)
-KEY=$(printf '%s' "$jq_out"      | cut -f3)
-CERT=$(printf '%s' "$jq_out"     | cut -f4)
-MOK_PASS=$(printf '%s' "$jq_out" | cut -f5)
-
-SB=false
-if [ -z "${KEY}" ] && [ -z "${CERT}" ] && [ -z "${MOK_PASS}" ]; then
-    log "SecureBoot signing disabled."
-elif [ -f "${KEY}" ] && [ -f "${CERT}" ] && [ -n "${MOK_PASS}" ]; then
-    SB=true; log "SecureBoot signing enabled."
-else
-    err "Invalid signing config: key=${KEY:-<empty>} cert=${CERT:-<empty>} mok-password=${MOK_PASS:-<empty>}"
-    exit 1
+    systemctl enable mok-enroll.service
 fi
 
-if [ "$SB" = "true" ]; then
-    openssl pkey -in "${KEY}"  -noout 2>/dev/null || { err "sign.key is not a valid private key"; exit 1; }
-    openssl x509 -in "${CERT}" -noout 2>/dev/null || { err "sign.cert is not a valid X509 cert"; exit 1; }
-    tmp1="$(mktemp)"; tmp2="$(mktemp)"
-    openssl pkey -in "${KEY}" -pubout        >"${tmp1}"
-    openssl x509 -in "${CERT}" -pubkey -noout >"${tmp2}"
-    if ! diff -q "${tmp1}" "${tmp2}" >/dev/null; then
-        rm -f "${tmp1}" "${tmp2}"
-        err "sign.key and sign.cert do not match"
-        exit 1
-    fi
-    rm -f "${tmp1}" "${tmp2}"
-fi
+# 4. Finalizing
+log "Generating initramfs..."
+DRACUT_NO_XATTR=1 /usr/bin/dracut --no-hostonly --kver "${KERNEL_VERSION}" --reproducible --add ostree -f "/usr/lib/modules/${KERNEL_VERSION}/initramfs.img"
 
-# ---------------------------------------------------------------------------
-# Kernel package resolution
-# ---------------------------------------------------------------------------
-
-case "${KTYPE}" in
-    *-nvidia) BASE="${KTYPE%-nvidia}" ;;
-    *)        BASE="${KTYPE}" ;;
-esac
-
-case "${BASE}" in
-    cachyos-lto|cachyos-lts-lto)    COPR="bieszczaders/kernel-cachyos-lto" ;;
-    cachyos|cachyos-rt|cachyos-lts) COPR="bieszczaders/kernel-cachyos" ;;
-    *) err "Unsupported kernel type: ${KTYPE}"; exit 1 ;;
-esac
-
-KPKGS="kernel-${BASE} kernel-${BASE}-core kernel-${BASE}-modules"
-case "${KTYPE}" in
-    *-nvidia) KPKGS="${KPKGS} kernel-${BASE}-nvidia-open" ;;
-esac
-
-# ---------------------------------------------------------------------------
-# Install kernel
-# ---------------------------------------------------------------------------
-
-log "Disabling kernel install hooks."
-disable_hooks
-
-log "Removing default kernel."
-dnf -y remove kernel kernel-core kernel-modules kernel-modules-core \
-    kernel-modules-extra kernel-devel kernel-devel-matched || true
-rm -rf /usr/lib/modules/*
-
-log "Enabling COPR: ${COPR}"
-dnf -y copr enable "${COPR}"
-
-log "Installing: ${KPKGS}"
-# SC2086: intentional word-splitting on space-separated package list
-# shellcheck disable=SC2086
-dnf -y install $KPKGS "kernel-${BASE}-devel-matched" akmods
-TRANSIENT="${TRANSIENT:+${TRANSIENT} }kernel-${BASE}-devel-matched akmods"
-
-KVER="$(rpm -q "$(printf '%s' "$KPKGS" | cut -d' ' -f1)" \
-    --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}')" || exit 1
-log "Kernel: ${KVER}"
-
-restore_hooks
+log "Restoring hooks and cleaning up..."
+restore_kernel_install_hooks
+dnf -y remove "kernel-${BASE}-devel-matched" # Remove heavy headers but keep akmods
 rm -f /etc/yum.repos.d/*copr*
 
-# ---------------------------------------------------------------------------
-# Build v4l2loopback
-# ---------------------------------------------------------------------------
-
-log "Building v4l2loopback."
-disable_ak || exit 1
-
-dnf -y install "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm"
-TRANSIENT="${TRANSIENT:+${TRANSIENT} }rpmfusion-free-release"
-
-dnf install -y --setopt=install_weak_deps=False --setopt=tsflags=noscripts akmod-v4l2loopback
-TRANSIENT="${TRANSIENT:+${TRANSIENT} }akmod-v4l2loopback"
-
-akmods --force --verbose --kernels "${KVER}" --kmod v4l2loopback
-
-fail_found=false
-for f in /var/cache/akmods/v4l2loopback/*-for-"${KVER}".failed.log; do
-    [ -f "$f" ] && { fail_found=true; break; }
-done
-if [ "$fail_found" = "true" ]; then
-    err "v4l2loopback build failed"
-    for f in /var/cache/akmods/v4l2loopback/*-for-"${KVER}".failed.log; do
-        [ -f "$f" ] && { cat "$f"; log "---"; }
-    done
-    restore_ak; exit 1
-fi
-
-rm -f /etc/yum.repos.d/rpmfusion-free*.repo
-restore_ak
-
-# ---------------------------------------------------------------------------
-# SecureBoot signing (must happen before transient removal: sign-file lives
-# inside kernel-devel, which dnf auto-removes with devel-matched)
-# ---------------------------------------------------------------------------
-
-if [ "$SB" = "true" ]; then
-    log "Signing kernel.";           sign_kernel    || exit 1
-    log "Signing modules.";          sign_mods      || exit 1
-    log "Creating MOK enroll unit."; create_mok_unit || exit 1
-fi
-
-# ---------------------------------------------------------------------------
-# Remove transient build packages
-# ---------------------------------------------------------------------------
-
-if [ -n "${TRANSIENT}" ]; then
-    log "Removing transient packages: ${TRANSIENT}"
-    # SC2086: intentional word-splitting on space-separated package list
-    # shellcheck disable=SC2086
-    dnf -y remove $TRANSIENT || true
-    TRANSIENT=""
-fi
-
-# ---------------------------------------------------------------------------
-# Initramfs
-# ---------------------------------------------------------------------------
-
-if [ "${INITRAMFS}" = "true" ]; then
-    log "Generating initramfs."
-    tmp="$(mktemp)"
-    DRACUT_NO_XATTR=1 /usr/bin/dracut \
-        --no-hostonly --kver "${KVER}" --reproducible --add ostree -f "${tmp}" -v || exit 1
-    install -D -m 0600 "${tmp}" "/usr/lib/modules/${KVER}/initramfs.img"
-    rm -f "${tmp}"
-fi
-
-# ---------------------------------------------------------------------------
-# Final integrity check
-# ---------------------------------------------------------------------------
-
-if [ "$SB" = "true" ]; then
-    sha256sum -c /tmp/vmlinuz.sha || { err "Kernel modified after signing."; exit 1; }
-    rm -f /tmp/vmlinuz.sha
-    log "Integrity check passed."
-fi
-
-log "Done."
+log "Installation complete."

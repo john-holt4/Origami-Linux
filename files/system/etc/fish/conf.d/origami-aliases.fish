@@ -74,6 +74,7 @@ alias docker-compose podman-compose
 alias cat bat
 alias sudo 'sudo-rs '
 alias su su-rs
+alias cmatrix termflix
 
 # --- Directory listings via eza ----------------------------------------------
 alias la 'eza -la --icons'

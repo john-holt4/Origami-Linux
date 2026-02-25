@@ -39,7 +39,7 @@ if [ "${SECURE_BOOT}" = "true" ]; then
     _tmp1=$(mktemp); _tmp2=$(mktemp)
     openssl pkey -in "${SIGNING_KEY}"  -pubout        >"${_tmp1}"
     openssl x509 -in "${SIGNING_CERT}" -pubkey -noout >"${_tmp2}"
-    if ! diff -q "${_tmp1}" "${_tmp2}" >/dev/null 2>&1; then
+    if ! cmp -s "${_tmp1}" "${_tmp2}" >/dev/null 2>&1; then
         rm -f "${_tmp1}" "${_tmp2}"
         err "sign.key and sign.cert do not match"
         exit 1
@@ -99,33 +99,32 @@ TRANSIENT="${TRANSIENT} ${KERNEL_DEVEL_PKG}"
 # ---------------------------------------------------------------------------
 
 disable_kernel_install_hooks() {
-    local f
-    for f in \
+    for _f in \
         /usr/lib/kernel/install.d/05-rpmostree.install \
         /usr/lib/kernel/install.d/50-dracut.install
     do
-        [ -f "${f}" ] || continue
-        mv "${f}" "${f}.bak"
-        printf '#!/bin/sh\nexit 0\n' >"${f}"
-        chmod +x "${f}"
+        [ -f "${_f}" ] || continue
+        mv "${_f}" "${_f}.bak"
+        printf '#!/bin/sh\nexit 0\n' >"${_f}"
+        chmod +x "${_f}"
     done
 }
 
 restore_kernel_install_hooks() {
-    local f
-    for f in \
+    for _f in \
         /usr/lib/kernel/install.d/05-rpmostree.install \
         /usr/lib/kernel/install.d/50-dracut.install
     do
-        [ -f "${f}.bak" ] && mv -f "${f}.bak" "${f}"
+        [ -f "${_f}.bak" ] && mv -f "${_f}.bak" "${_f}"
     done
 }
 
 disable_akmodsbuild() {
-    local ak="/usr/sbin/akmodsbuild"
-    [ -f "${ak}" ] || { err "akmodsbuild not found: ${ak}"; return 1; }
-    cp -a "${ak}" "${ak}.backup" || return 1
-    sed -i '/if \[\[ -w \/var \]\] ; then/,/fi/d' "${ak}" || return 1
+    _ak="/usr/sbin/akmodsbuild"
+    [ -f "${_ak}" ] || { err "akmodsbuild not found: ${_ak}"; return 1; }
+    cp -p "${_ak}" "${_ak}.backup" || return 1
+    sed '/if \[\[ -w \/var \]\] ; then/,/fi/d' "${_ak}" > "${_ak}.tmp" && mv "${_ak}.tmp" "${_ak}" || return 1
+    chmod +x "${_ak}"
 }
 
 restore_akmodsbuild() {
@@ -134,87 +133,89 @@ restore_akmodsbuild() {
 }
 
 sign_kernel() {
-    local vmlinuz="/usr/lib/modules/${KERNEL_VERSION}/vmlinuz"
-    local tmp
-    [ -f "${vmlinuz}" ] || { err "Kernel image not found: ${vmlinuz}"; return 1; }
-    tmp=$(mktemp)
-    sbsign --key "${SIGNING_KEY}" --cert "${SIGNING_CERT}" --output "${tmp}" "${vmlinuz}"
-    if ! sbverify --cert "${SIGNING_CERT}" "${tmp}"; then
+    _vmlinuz="/usr/lib/modules/${KERNEL_VERSION}/vmlinuz"
+    [ -f "${_vmlinuz}" ] || { err "Kernel image not found: ${_vmlinuz}"; return 1; }
+    _tmp=$(mktemp)
+    sbsign --key "${SIGNING_KEY}" --cert "${SIGNING_CERT}" --output "${_tmp}" "${_vmlinuz}"
+    if ! sbverify --cert "${SIGNING_CERT}" "${_tmp}"; then
         err "Kernel signature verification failed"
-        rm -f "${tmp}"
+        rm -f "${_tmp}"
         return 1
     fi
-    install -m 0644 "${tmp}" "${vmlinuz}"
-    rm -f "${tmp}"
-    sha256sum "${vmlinuz}" >/tmp/vmlinuz.sha
+    cp "${_tmp}" "${_vmlinuz}"
+    chmod 0644 "${_vmlinuz}"
+    rm -f "${_tmp}"
+    sha256sum "${_vmlinuz}" >/tmp/vmlinuz.sha
 }
 
 sign_kernel_modules() {
-    local module_root="/usr/lib/modules/${KERNEL_VERSION}"
-    local sign_file="${module_root}/build/scripts/sign-file"
-    local tmplist mod raw
-    [ -x "${sign_file}" ] \
-        || { err "sign-file not found or not executable: ${sign_file}"; return 1; }
-    tmplist=$(mktemp)
-    find "${module_root}" -type f \( \
+    _module_root="/usr/lib/modules/${KERNEL_VERSION}"
+    _sign_file="${_module_root}/build/scripts/sign-file"
+    [ -x "${_sign_file}" ] \
+        || { err "sign-file not found or not executable: ${_sign_file}"; return 1; }
+    _tmplist=$(mktemp)
+    find "${_module_root}" -type f \( \
         -name "*.ko" -o -name "*.ko.xz" -o -name "*.ko.zst" -o -name "*.ko.gz" \
-    \) >"${tmplist}"
-    while IFS= read -r mod; do
-        case "${mod}" in
+    \) >"${_tmplist}"
+    while IFS= read -r _mod; do
+        case "${_mod}" in
         *.ko)
-            "${sign_file}" sha256 "${SIGNING_KEY}" "${SIGNING_CERT}" "${mod}" \
-                || { rm -f "${tmplist}"; return 1; }
+            "${_sign_file}" sha256 "${SIGNING_KEY}" "${SIGNING_CERT}" "${_mod}" \
+                || { rm -f "${_tmplist}"; return 1; }
             ;;
         *.ko.xz)
-            raw="${mod%.xz}"
-            xz -d -q "${mod}"
-            "${sign_file}" sha256 "${SIGNING_KEY}" "${SIGNING_CERT}" "${raw}" \
-                || { rm -f "${tmplist}"; return 1; }
-            xz -z -q "${raw}"
+            _raw="${_mod%.xz}"
+            xz -d -q "${_mod}"
+            "${_sign_file}" sha256 "${SIGNING_KEY}" "${SIGNING_CERT}" "${_raw}" \
+                || { rm -f "${_tmplist}"; return 1; }
+            xz -z -q "${_raw}"
             ;;
         *.ko.zst)
-            raw="${mod%.zst}"
-            zstd -d -q --rm "${mod}"
-            "${sign_file}" sha256 "${SIGNING_KEY}" "${SIGNING_CERT}" "${raw}" \
-                || { rm -f "${tmplist}"; return 1; }
-            zstd -q "${raw}"
+            _raw="${_mod%.zst}"
+            zstd -d -q --rm "${_mod}"
+            "${_sign_file}" sha256 "${SIGNING_KEY}" "${SIGNING_CERT}" "${_raw}" \
+                || { rm -f "${_tmplist}"; return 1; }
+            zstd -q "${_raw}"
             ;;
         *.ko.gz)
-            raw="${mod%.gz}"
-            gunzip -q "${mod}"
-            "${sign_file}" sha256 "${SIGNING_KEY}" "${SIGNING_CERT}" "${raw}" \
-                || { rm -f "${tmplist}"; return 1; }
-            gzip -q "${raw}"
+            _raw="${_mod%.gz}"
+            gunzip -q "${_mod}"
+            "${_sign_file}" sha256 "${SIGNING_KEY}" "${SIGNING_CERT}" "${_raw}" \
+                || { rm -f "${_tmplist}"; return 1; }
+            gzip -q "${_raw}"
             ;;
         esac
-    done <"${tmplist}"
-    rm -f "${tmplist}"
+    done <"${_tmplist}"
+    rm -f "${_tmplist}"
 }
 
 create_mok_enroll_unit() {
-    local mok_cert="/usr/share/cert/MOK.der"
-    local unit_file="/usr/lib/systemd/system/mok-enroll.service"
-    local tmp
-    tmp=$(mktemp)
-    openssl x509 -in "${SIGNING_CERT}" -outform DER -out "${tmp}" \
-        || { rm -f "${tmp}"; return 1; }
-    install -D -m 0644 "${tmp}" "${mok_cert}"
-    rm -f "${tmp}"
-    install -D -m 0644 /dev/stdin "${unit_file}" <<EOF
+    _mok_cert="/usr/share/cert/MOK.der"
+    _unit_file="/usr/lib/systemd/system/mok-enroll.service"
+    _tmp=$(mktemp)
+    openssl x509 -in "${SIGNING_CERT}" -outform DER -out "${_tmp}" \
+        || { rm -f "${_tmp}"; return 1; }
+    mkdir -p "$(dirname "${_mok_cert}")"
+    cp "${_tmp}" "${_mok_cert}"
+    chmod 0644 "${_mok_cert}"
+    rm -f "${_tmp}"
+    mkdir -p "$(dirname "${_unit_file}")"
+    cat <<EOF > "${_unit_file}"
 [Unit]
 Description=Enroll MOK key on first boot
-ConditionPathExists=${mok_cert}
+ConditionPathExists=${_mok_cert}
 ConditionPathExists=!/var/.mok-enrolled
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c '(echo "${MOK_PASSWORD}"; echo "${MOK_PASSWORD}") | mokutil --import "${mok_cert}"'
+ExecStart=/bin/sh -c '(echo "${MOK_PASSWORD}"; echo "${MOK_PASSWORD}") | mokutil --import "${_mok_cert}"'
 ExecStartPost=/usr/bin/touch /var/.mok-enrolled
 RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
 EOF
+    chmod 0644 "${_unit_file}"
     systemctl -f enable mok-enroll.service
     log "Created and enabled mok-enroll.service"
 }
@@ -360,7 +361,8 @@ if [ "${NVIDIA}" = "true" ]; then
     rm -f nvidia-container.pp
 
     log "Installing Nvidia container toolkit service and preset."
-    install -D -m 0644 /dev/stdin /usr/lib/systemd/system/nvctk-cdi.service <<'EOF'
+    mkdir -p /usr/lib/systemd/system
+    cat <<'EOF' > /usr/lib/systemd/system/nvctk-cdi.service
 [Unit]
 Description=NVIDIA Container Toolkit CDI auto-generation
 ConditionFileIsExecutable=/usr/bin/nvidia-ctk
@@ -374,23 +376,31 @@ ExecStart=/usr/bin/nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
 [Install]
 WantedBy=multi-user.target
 EOF
+    chmod 0644 /usr/lib/systemd/system/nvctk-cdi.service
 
-    install -D -m 0644 /dev/stdin /usr/lib/systemd/system-preset/70-nvctk-cdi.preset <<'EOF'
+    mkdir -p /usr/lib/systemd/system-preset
+    cat <<'EOF' > /usr/lib/systemd/system-preset/70-nvctk-cdi.preset
 enable nvctk-cdi.service
 EOF
+    chmod 0644 /usr/lib/systemd/system-preset/70-nvctk-cdi.preset
 
-    install -D -m 0644 /dev/stdin /etc/modprobe.d/nvidia.conf <<'EOF'
+    mkdir -p /etc/modprobe.d
+    cat <<'EOF' > /etc/modprobe.d/nvidia.conf
 blacklist nouveau
 options nouveau modeset=0
 options nvidia-drm modeset=1 fbdev=1
 EOF
+    chmod 0644 /etc/modprobe.d/nvidia.conf
 
-    install -D -m 0644 /dev/stdin /usr/lib/dracut/dracut.conf.d/99-nvidia.conf <<'EOF'
+    mkdir -p /usr/lib/dracut/dracut.conf.d
+    cat <<'EOF' > /usr/lib/dracut/dracut.conf.d/99-nvidia.conf
 # Force the i915 amdgpu nvidia drivers to the ramdisk
 force_drivers+=" i915 amdgpu nvidia nvidia_drm nvidia_modeset nvidia_peermem nvidia_uvm "
 EOF
+    chmod 0644 /usr/lib/dracut/dracut.conf.d/99-nvidia.conf
 
-    install -D -m 0644 /dev/stdin /usr/lib/bootc/kargs.d/90-nvidia.toml <<'EOF'
+    mkdir -p /usr/lib/bootc/kargs.d
+    cat <<'EOF' > /usr/lib/bootc/kargs.d/90-nvidia.toml
 kargs = [
 "rd.driver.blacklist=nouveau",
 "modprobe.blacklist=nouveau",
@@ -399,6 +409,7 @@ kargs = [
 "nvidia-drm.fbdev=1"
 ]
 EOF
+    chmod 0644 /usr/lib/bootc/kargs.d/90-nvidia.toml
 fi
 
 # ---------------------------------------------------------------------------
@@ -459,7 +470,9 @@ if [ "${INITRAMFS}" = "true" ]; then
         --add ostree \
         -f "${_tmp}" \
         -v || exit 1
-    install -D -m 0600 "${_tmp}" "/usr/lib/modules/${KERNEL_VERSION}/initramfs.img"
+    mkdir -p "/usr/lib/modules/${KERNEL_VERSION}"
+    cp "${_tmp}" "/usr/lib/modules/${KERNEL_VERSION}/initramfs.img"
+    chmod 0600 "/usr/lib/modules/${KERNEL_VERSION}/initramfs.img"
     rm -f "${_tmp}"
 fi
 

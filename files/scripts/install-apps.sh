@@ -28,3 +28,24 @@ cd /
 rm -rf "$TEMP_DIR"
 
 echo "Surge installed successfully to /usr/bin/surge"
+
+# --- Termflix ---
+
+# 1. Fetch latest Termflix download URL
+echo "Fetching latest Termflix..."
+REPO="paulrobello/termflix"
+DOWNLOAD_URL=$(curl -s https://api.github.com/repos/$REPO/releases/latest \
+  | jq -r '.assets[] | select(.name == "termflix-linux-x86_64") | .browser_download_url')
+
+# 2. Guard against empty URL
+if [[ -z "$DOWNLOAD_URL" ]]; then
+    echo "ERROR: Could not find a download URL for Termflix. The GitHub API may be rate-limiting this request or the asset name has changed." >&2
+    exit 1
+fi
+
+# 3. Download the binary directly
+echo "Downloading from: $DOWNLOAD_URL"
+curl -fL "$DOWNLOAD_URL" -o /usr/bin/termflix
+chmod +x /usr/bin/termflix
+
+echo "Termflix installed successfully to /usr/bin/termflix"

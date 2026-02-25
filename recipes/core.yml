@@ -68,7 +68,6 @@ modules:
         - hyperfine
         - starship
         - cbonsai
-        - cmatrix
         - sudo-rs
         - uutils-coreutils
         - byobu

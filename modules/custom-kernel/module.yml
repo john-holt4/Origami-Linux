@@ -4,7 +4,7 @@ example: |
   type: custom-kernel
   kernel: cachyos-lto   # Default: cachyos-lto
                         # Supported base types: cachyos, cachyos-lts, cachyos-rt, cachyos-lto, cachyos-lts-lto
-                        # Append -nvidia to any base type to also install the nvidia-open kmod, e.g. cachyos-nvidia
+  nvidia: true          # Default: false — also install the nvidia kmod
   initramfs: true       # Default: false — generate a dracut initramfs for the installed kernel
   sign:                 # Optional — omit the entire block to disable SecureBoot signing
     key: /tmp/certs/MOK.key

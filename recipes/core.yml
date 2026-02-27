@@ -80,6 +80,8 @@ modules:
         - rclone
         - ShellCheck
         - lm_sensors
+        - surge
+        - termflix
         - repo: copr:copr.fedorainfracloud.org:lilay:tealdeer
           packages:
             - tealdeer

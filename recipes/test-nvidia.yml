@@ -36,7 +36,9 @@ modules:
       ID: origami-test
       ID_LIKE: fedora
       NAME: Origami Linux Test
-      PRETTY_NAME: Origami Linux
+      PRETTY_NAME: "Origami Linux 2026.03"
+      VERSION: "2026.03 (Rolling Snapshot)"
+      VERSION_ID: "2026.03"
       HOME_URL: "https://origami.wf/"
       BUG_REPORT_URL: "https://gitlab.com/groups/origami-linux/-/issues"
       DEFAULT_HOSTNAME: origami

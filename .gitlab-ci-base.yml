@@ -16,6 +16,8 @@ build-base-image:
 
 build-base-iso:
   extends: .iso-job-template
+  needs:
+    - build-base-image
   variables:
     ISO_NAME: "origami-x86_64.iso"
     IMAGE_NAME: "registry.gitlab.com/origami-linux/images/origami"

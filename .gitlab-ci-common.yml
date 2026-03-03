@@ -58,13 +58,42 @@
     - cat $ISO_NAME.sha256
     - echo "============================================"
 
-    # Upload ISO + checksum
+    # Upload Daily ISO + checksum
     - export AWS_ACCESS_KEY_ID=$S3_ACCESS_KEY
     - export AWS_SECRET_ACCESS_KEY=$S3_SECRET_KEY
     - aws s3 cp $ISO_NAME s3://origami-linux/$ISO_NAME --endpoint-url $S3_ENDPOINT_URL
     - aws s3 cp $ISO_NAME.sha256 s3://origami-linux/$ISO_NAME.sha256 --endpoint-url $S3_ENDPOINT_URL
 
-    # Purge CDN (ISO + checksum)
+    # --- NEW: Map Git Tag to Release Version ---
+    - |
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        echo "Pipeline triggered by Git tag: $CI_COMMIT_TAG"
+        # Strip the leading 'v' if you use tags like v2026.03
+        export RELEASE_VERSION="${CI_COMMIT_TAG#v}"
+      fi
+
+    # --- NEW: Monthly Snapshot Logic ---
+    - |
+      if [ -n "$RELEASE_VERSION" ]; then
+        echo "RELEASE_VERSION is set to $RELEASE_VERSION. Creating static snapshot..."
+
+        # Strip the .iso extension and append the version (e.g., origami-x86_64-2026.03.iso)
+        SNAPSHOT_ISO="${ISO_NAME%.iso}-${RELEASE_VERSION}.iso"
+
+        # Copy the daily files to the new snapshot names
+        cp $ISO_NAME $SNAPSHOT_ISO
+        cp $ISO_NAME.sha256 $SNAPSHOT_ISO.sha256
+
+        # Upload the snapshot ISO + checksum to S3
+        aws s3 cp $SNAPSHOT_ISO s3://origami-linux/$SNAPSHOT_ISO --endpoint-url $S3_ENDPOINT_URL
+        aws s3 cp $SNAPSHOT_ISO.sha256 s3://origami-linux/$SNAPSHOT_ISO.sha256 --endpoint-url $S3_ENDPOINT_URL
+
+        echo "Snapshot $SNAPSHOT_ISO successfully uploaded to S3!"
+      else
+        echo "No tag detected. Skipping snapshot upload. This is a standard daily build."
+      fi
+
+    # Purge CDN for the Daily ISO (ISO + checksum)
     - |
       curl -X POST "https://api.cdn77.com/v3/cdn/$CDN_ID/job/purge/paths" \
         -H "Authorization: Bearer $CDN77_API_KEY" \
@@ -76,3 +105,4 @@
     expire_in: 2 years
     paths:
       - $ISO_NAME.sha256
+      - "*.sha256" # Captures both the daily and snapshot checksums if they exist

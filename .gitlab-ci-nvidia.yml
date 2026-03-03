@@ -16,6 +16,8 @@ build-nvidia-image:
 
 build-nvidia-iso:
   extends: .iso-job-template
+  needs:
+    - build-nvidia-image
   variables:
     ISO_NAME: "origami-nvidia-x86_64.iso"
     IMAGE_NAME: "registry.gitlab.com/origami-linux/images/origami-nvidia"

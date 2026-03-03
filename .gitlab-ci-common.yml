@@ -8,8 +8,6 @@
   - echo $CI_REGISTRY_PASSWORD | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
 
 # --- Reusable crane install steps ---
-# Use !reference [.install-crane, script] to include these steps in a job's script.
-# Note: YAML anchors (&/*) cannot cross file boundaries — !reference must be used instead.
 .install-crane:
   script:
     - curl -fsSL -o /tmp/crane.tgz https://github.com/google/go-containerregistry/releases/latest/download/go-containerregistry_Linux_x86_64.tar.gz
@@ -34,75 +32,47 @@
   before_script:
     - *setup_env
 
-# --- Reusable ISO build/upload/purge job ---
-# Concrete jobs need only provide:
-#   variables:
-#     ISO_NAME: "my-image-x86_64.iso"
-#     IMAGE_NAME: "registry.gitlab.com/origami-linux/images/my-image"
+# --- Reusable ISO build/upload job (Tag/Release Only) ---
 .iso-job-template:
   extends: .bluebuild-job-template
   stage: iso
+  rules:
+    # This ensures the ISO is ONLY built when you push a Git tag (e.g., v2026.03)
+    - if: $CI_COMMIT_TAG
   before_script:
     - !reference [.bluebuild-job-template, before_script]
     - echo "Installing AWS CLI..."
     - dnf install -y awscli2
   script:
-    # Build ISO
-    - bluebuild generate-iso --secure-boot-url https://gitlab.com/origami-linux/images/-/raw/main/MOK.der --enrollment-password origami --iso-name $ISO_NAME image $IMAGE_NAME
+    # 1. Parse the Version from the Git Tag
+    - echo "Pipeline triggered by Git tag $CI_COMMIT_TAG"
+    - export RELEASE_VERSION="${CI_COMMIT_TAG#v}"
+    - export RELEASE_ISO="${ISO_NAME%.iso}-${RELEASE_VERSION}.iso"
+    - echo "Building release ISO $RELEASE_ISO..."
 
-    # Generate SHA256
-    - sha256sum $ISO_NAME | tee $ISO_NAME.sha256
+    # 2. Build ISO directly with the versioned name
+    - bluebuild generate-iso --secure-boot-url https://gitlab.com/origami-linux/images/-/raw/main/MOK.der --enrollment-password origami --iso-name $RELEASE_ISO image $IMAGE_NAME
 
-    # Print SHA256 in logs
-    - echo "================ ISO SHA256 ================"
-    - cat $ISO_NAME.sha256
-    - echo "============================================"
+    # 3. Generate SHA256
+    - sha256sum $RELEASE_ISO | tee $RELEASE_ISO.sha256
 
-    # Upload Daily ISO + checksum
+    # 4. Upload the versioned ISO + checksum directly to S3
     - export AWS_ACCESS_KEY_ID=$S3_ACCESS_KEY
     - export AWS_SECRET_ACCESS_KEY=$S3_SECRET_KEY
-    - aws s3 cp $ISO_NAME s3://origami-linux/$ISO_NAME --endpoint-url $S3_ENDPOINT_URL
-    - aws s3 cp $ISO_NAME.sha256 s3://origami-linux/$ISO_NAME.sha256 --endpoint-url $S3_ENDPOINT_URL
+    - aws s3 cp $RELEASE_ISO s3://origami-linux/$RELEASE_ISO --endpoint-url $S3_ENDPOINT_URL
+    - aws s3 cp $RELEASE_ISO.sha256 s3://origami-linux/$RELEASE_ISO.sha256 --endpoint-url $S3_ENDPOINT_URL
 
-    # --- NEW: Map Git Tag to Release Version ---
-    - |
-      if [ -n "$CI_COMMIT_TAG" ]; then
-        echo "Pipeline triggered by Git tag: $CI_COMMIT_TAG"
-        # Strip the leading 'v' if you use tags like v2026.03
-        export RELEASE_VERSION="${CI_COMMIT_TAG#v}"
-      fi
-
-    # --- NEW: Monthly Snapshot Logic ---
-    - |
-      if [ -n "$RELEASE_VERSION" ]; then
-        echo "RELEASE_VERSION is set to $RELEASE_VERSION. Creating static snapshot..."
-
-        # Strip the .iso extension and append the version (e.g., origami-x86_64-2026.03.iso)
-        SNAPSHOT_ISO="${ISO_NAME%.iso}-${RELEASE_VERSION}.iso"
-
-        # Copy the daily files to the new snapshot names
-        cp $ISO_NAME $SNAPSHOT_ISO
-        cp $ISO_NAME.sha256 $SNAPSHOT_ISO.sha256
-
-        # Upload the snapshot ISO + checksum to S3
-        aws s3 cp $SNAPSHOT_ISO s3://origami-linux/$SNAPSHOT_ISO --endpoint-url $S3_ENDPOINT_URL
-        aws s3 cp $SNAPSHOT_ISO.sha256 s3://origami-linux/$SNAPSHOT_ISO.sha256 --endpoint-url $S3_ENDPOINT_URL
-
-        echo "Snapshot $SNAPSHOT_ISO successfully uploaded to S3!"
-      else
-        echo "No tag detected. Skipping snapshot upload. This is a standard daily build."
-      fi
-
-    # Purge CDN for the Daily ISO (ISO + checksum)
+    # 5. Purge CDN for the new versioned file
+    # (Useful if you ever need to re-run the pipeline to hotfix the same version tag)
     - |
       curl -X POST "https://api.cdn77.com/v3/cdn/$CDN_ID/job/purge/paths" \
         -H "Authorization: Bearer $CDN77_API_KEY" \
         -H "Content-Type: application/json" \
-        -d "{\"paths\": [\"/$ISO_NAME\", \"/$ISO_NAME.sha256\"]}"
+        -d "{\"paths\": [\"/$RELEASE_ISO\", \"/$RELEASE_ISO.sha256\"]}"
+
   artifacts:
-    name: "origami-iso-checksums-$CI_COMMIT_SHA"
+    name: "origami-iso-$CI_COMMIT_TAG-checksums"
     when: always
     expire_in: 2 years
     paths:
-      - $ISO_NAME.sha256
-      - "*.sha256" # Captures both the daily and snapshot checksums if they exist
+      - "*.sha256"

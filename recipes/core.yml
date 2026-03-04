@@ -1,16 +1,5 @@
 # yaml-language-server: $schema=https://schema.blue-build.org/module-list-v1.json
 modules:
-  - type: systemd
-    system:
-      enabled:
-        - cosmic-ext-storage-daemon.service
-      masked:
-        - flatpak-add-fedora-repos.service
-        - bootc-fetch-apply-updates.timer
-    user:
-      enabled:
-        - podman.socket
-
   - type: script
     scripts:
       - install-apps.sh
@@ -97,6 +86,17 @@ modules:
         - toolbox
         - google-noto-color-emoji-fonts
         - gnome-disk-utility
+
+  - type: systemd
+    system:
+      enabled:
+        - cosmic-ext-storage-daemon.service
+      masked:
+        - flatpak-add-fedora-repos.service
+        - bootc-fetch-apply-updates.timer
+    user:
+      enabled:
+        - podman.socket
 
   - type: fonts
     fonts:

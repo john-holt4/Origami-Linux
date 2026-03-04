@@ -2,6 +2,8 @@
 modules:
   - type: systemd
     system:
+      enabled:
+        - cosmic-ext-storage-daemon.service
       masked:
         - flatpak-add-fedora-repos.service
         - bootc-fetch-apply-updates.timer

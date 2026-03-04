@@ -29,7 +29,7 @@ modules:
         - terra-release
         - https://gitlab.com/api/v4/projects/79678744/packages/generic/noctua/latest/noctua.fc%OS_VERSION%.x86_64.rpm
         - cosmic-ext-calculator
-        - cosmic-ext-disks
+        - cosmic-ext-storage
         - cosmic-ext-applet-clipboard-manager
         - https://gitlab.com/api/v4/projects/79697288/packages/generic/cosmic-ext-applet-sysinfo/latest/cosmic-ext-applet-sysinfo.fc%OS_VERSION%.x86_64.rpm
         - https://gitlab.com/api/v4/projects/79697895/packages/generic/cosmic-ext-applet-logomenu/latest/cosmic-ext-applet-logomenu.fc%OS_VERSION%.x86_64.rpm
@@ -76,7 +76,6 @@ modules:
         - cachyos-settings
         - scx-scheds
         - scx-tools
-        - rclone
         - ShellCheck
         - lm_sensors
         - surge

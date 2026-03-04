@@ -15,6 +15,12 @@ function _command_exists
 end
 
 function _should_nag
+    # 0. Check user preference
+    set -l config_dir (set -q XDG_CONFIG_HOME; and echo $XDG_CONFIG_HOME; or echo $HOME/.config)
+    if test -f "$config_dir/origami/nags_disabled"
+        return 1
+    end
+
     # 1. Check if interactive
     if not status is-interactive
         return 1
@@ -46,6 +52,21 @@ function _nag_and_exec
     end
 
     command "$target" $argv
+end
+
+function nag
+    set -l config_dir (set -q XDG_CONFIG_HOME; and echo $XDG_CONFIG_HOME; or echo $HOME/.config)
+    switch "$argv[1]"
+        case off
+            mkdir -p "$config_dir/origami"
+            touch "$config_dir/origami/nags_disabled"
+            echo "Nags disabled."
+        case on
+            rm -f "$config_dir/origami/nags_disabled"
+            echo "Nags enabled."
+        case '*'
+            echo "Usage: nag {on|off}"
+    end
 end
 
 # --- Wrappers ----------------------------------------------------------------

@@ -29,6 +29,11 @@ _eval_if_available() {
 }
 
 _should_nag() {
+    # 0. Check user preference
+    if [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/origami/nags_disabled" ]; then
+        return 1
+    fi
+
     # 1. Don't nag during completion (COMP_LINE check)
     # 2. Don't nag if stderr isn't a TTY
     if [ ! -t 2 ] || [ -n "$COMP_LINE" ]; then
@@ -56,6 +61,23 @@ _nag_and_exec() {
         printf '%s\n' "$tip" >&2
     fi
     command "$target" "$@"
+}
+
+nag() {
+    case "$1" in
+        off)
+            mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/origami"
+            touch "${XDG_CONFIG_HOME:-$HOME/.config}/origami/nags_disabled"
+            echo "Nags disabled."
+            ;;
+        on)
+            rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/origami/nags_disabled"
+            echo "Nags enabled."
+            ;;
+        *)
+            echo "Usage: nag {on|off}"
+            ;;
+    esac
 }
 
 # --- Wrappers ----------------------------------------------------------------

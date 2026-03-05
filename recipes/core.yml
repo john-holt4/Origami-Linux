@@ -33,7 +33,6 @@ modules:
         - lazygit
         - helix
         - procs
-        - dysk
         - du-dust
         - neovim
         - python3-neovim

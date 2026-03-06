@@ -17,12 +17,12 @@ modules:
     install:
       packages:
         - terra-release
-        - https://gitlab.com/api/v4/projects/79678744/packages/generic/noctua/latest/noctua.fc%OS_VERSION%.x86_64.rpm
         - cosmic-ext-calculator
         - cosmic-ext-storage
         - cosmic-ext-applet-clipboard-manager
-        - https://gitlab.com/api/v4/projects/79697288/packages/generic/cosmic-ext-applet-sysinfo/latest/cosmic-ext-applet-sysinfo.fc%OS_VERSION%.x86_64.rpm
-        - https://gitlab.com/api/v4/projects/79697895/packages/generic/cosmic-ext-applet-logomenu/latest/cosmic-ext-applet-logomenu.fc%OS_VERSION%.x86_64.rpm
+        - cosmic-ext-noctua
+        - cosmic-ext-applet-sysinfo
+        - cosmic-ext-applet-logomenu
         - https://gitlab.com/api/v4/projects/77221939/packages/generic/origami-update-applet/latest/origami-update-applet.fc%OS_VERSION%.x86_64.rpm
         - https://gitlab.com/api/v4/projects/76137389/packages/generic/cosmic-initial-setup/latest/cosmic-initial-setup.fc%OS_VERSION%.x86_64.rpm
         - NetworkManager-openvpn-gnome

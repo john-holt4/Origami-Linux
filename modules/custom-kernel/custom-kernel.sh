@@ -293,6 +293,38 @@ rm -f /etc/yum.repos.d/rpmfusion-free*.repo
 restore_akmodsbuild
 
 # ---------------------------------------------------------------------------
+# Build xone module (Xbox Controller)
+# ---------------------------------------------------------------------------
+
+log "Building xone module from source."
+# Ensure build requirements and bsdtar (for firmware extraction) are installed
+dnf install -y git make gcc curl bsdtar
+TRANSIENT="${TRANSIENT} git make gcc bsdtar"
+
+_tmp_xone=$(mktemp -d)
+git clone https://github.com/dlundqvist/xone.git "${_tmp_xone}"
+
+(
+    cd "${_tmp_xone}" || exit 1
+    # Build the module against the custom kernel
+    make -C "/usr/src/kernels/${KERNEL_VERSION}" M="${_tmp_xone}" modules || exit 1
+
+    # Install the built .ko modules
+    _xone_dir="/usr/lib/modules/${KERNEL_VERSION}/extra/xone"
+    mkdir -p "${_xone_dir}"
+    cp -p *.ko "${_xone_dir}/"
+
+    # Install modprobe blacklist (disables xpad) and firmware script
+    install -D -m 644 install/modprobe.conf /etc/modprobe.d/xone-blacklist.conf
+    install -D -m 755 install/firmware.sh /usr/local/bin/xone-get-firmware.sh
+
+    # Download and extract the wireless dongle firmware into /lib/firmware
+    /usr/local/bin/xone-get-firmware.sh --skip-disclaimer || log "Warning: xone firmware download failed."
+) || exit 1
+
+rm -rf "${_tmp_xone}"
+
+# ---------------------------------------------------------------------------
 # Build Nvidia modules (optional)
 # ---------------------------------------------------------------------------
 

@@ -244,7 +244,7 @@ dnf -y copr enable "${COPR_REPO}"
 log "Installing kernel packages: ${KERNEL_PACKAGES}"
 # SC2086: intentional word-splitting on space-separated package list
 # shellcheck disable=SC2086
-dnf -y install $KERNEL_PACKAGES akmods
+dnf -y install $KERNEL_PACKAGES akmods dracut
 
 KERNEL_VERSION=$(rpm -q "${KERNEL_PKG}" --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}') || exit 1
 log "Kernel version: ${KERNEL_VERSION}"
@@ -527,10 +527,14 @@ rm -rf /var/cache/dnf/* /var/tmp/dnf-* || true
 
 if [ "${INITRAMFS}" = "true" ]; then
     log "Generating initramfs."
-    if [ -f "/usr/libexec/rpm-ostree/wrapped/dracut" ]; then
+    if [ -x "/usr/libexec/rpm-ostree/wrapped/dracut" ]; then
         _dracut_bin="/usr/libexec/rpm-ostree/wrapped/dracut"
+    elif command -v dracut >/dev/null 2>&1; then
+        _dracut_bin="$(command -v dracut)"
     else
-        _dracut_bin="/usr/bin/dracut"
+        err "dracut not found (checked wrapped path and PATH)."
+        err "Install dracut before initramfs generation."
+        exit 1
     fi
     _tmp=$(mktemp)
     DRACUT_NO_XATTR=1 "${_dracut_bin}" \

@@ -15,6 +15,7 @@ modules:
     source: local
     kernel: cachyos-lto
     nvidia: true
+    initramfs: true
     secrets:
       - type: file
         source: .secure_files/MOK.priv

@@ -527,6 +527,9 @@ rm -rf /var/cache/dnf/* /var/tmp/dnf-* || true
 
 if [ "${INITRAMFS}" = "true" ]; then
     log "Generating initramfs."
+    if [ ! -x "/usr/bin/dracut" ]; then
+        dnf -y install dracut
+    fi
     if [ -x "/usr/libexec/rpm-ostree/wrapped/dracut" ]; then
         _dracut_bin="/usr/libexec/rpm-ostree/wrapped/dracut"
     elif command -v dracut >/dev/null 2>&1; then

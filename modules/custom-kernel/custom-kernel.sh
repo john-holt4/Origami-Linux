@@ -500,14 +500,14 @@ fi
 log "Removing transient build packages: ${TRANSIENT}"
 # SC2086: intentional word-splitting on space-separated package list
 # shellcheck disable=SC2086
-dnf -y remove $TRANSIENT || true
+dnf -y --setopt=clean_requirements_on_remove=False remove $TRANSIENT || true
 
 # Safety-net: remove any remaining akmod-* or *-devel-matched packages.
 _residual=$(rpm -qa --queryformat '%{NAME}\n' | grep -E '^akmod-|(-devel-matched)$' || true)
 if [ -n "${_residual}" ]; then
     log "Removing residual build packages: ${_residual}"
     # shellcheck disable=SC2086
-    dnf -y remove $_residual || true
+    dnf -y --setopt=clean_requirements_on_remove=False remove $_residual || true
 fi
 
 # Nuke kernel build trees (belt-and-suspenders after devel-matched removal).
@@ -527,8 +527,8 @@ rm -rf /var/cache/dnf/* /var/tmp/dnf-* || true
 
 if [ "${INITRAMFS}" = "true" ]; then
     log "Generating initramfs."
-    if [ ! -x "/usr/bin/dracut" ]; then
-        dnf -y install dracut
+    if [ ! -x "/usr/bin/dracut" ] || [ ! -d "/usr/lib/dracut/modules.d/50ostree" ]; then
+        dnf -y install dracut ostree
     fi
     if [ -x "/usr/libexec/rpm-ostree/wrapped/dracut" ]; then
         _dracut_bin="/usr/libexec/rpm-ostree/wrapped/dracut"

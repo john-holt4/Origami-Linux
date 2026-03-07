@@ -298,8 +298,8 @@ restore_akmodsbuild
 
 log "Building xone module from source."
 # Ensure build requirements and bsdtar (for firmware extraction) are installed
-dnf install -y git make gcc curl bsdtar
-TRANSIENT="${TRANSIENT} git make gcc bsdtar"
+dnf install -y git make gcc clang lld curl bsdtar
+TRANSIENT="${TRANSIENT} git make gcc clang lld bsdtar"
 
 _tmp_xone=$(mktemp -d)
 git clone https://github.com/dlundqvist/xone.git "${_tmp_xone}"
@@ -307,7 +307,7 @@ git clone https://github.com/dlundqvist/xone.git "${_tmp_xone}"
 (
     cd "${_tmp_xone}" || exit 1
     # Build the module against the custom kernel
-    make -C "/usr/src/kernels/${KERNEL_VERSION}" M="${_tmp_xone}" modules || exit 1
+    make LLVM=1 -C "/usr/src/kernels/${KERNEL_VERSION}" M="${_tmp_xone}" modules || exit 1
 
     # Install the built .ko modules
     _xone_dir="/usr/lib/modules/${KERNEL_VERSION}/extra/xone"
@@ -330,8 +330,8 @@ rm -rf "${_tmp_xone}"
 
 log "Building facetimehd module from source."
 # Ensure build requirements and extraction tools are installed
-dnf install -y git make gcc curl cpio xz
-TRANSIENT="${TRANSIENT} cpio xz"
+dnf install -y git make gcc clang lld curl cpio xz
+TRANSIENT="${TRANSIENT} clang lld cpio xz"
 
 _tmp_fthd=$(mktemp -d)
 
@@ -341,7 +341,7 @@ _tmp_fthd=$(mktemp -d)
     # Build kernel module
     git clone https://github.com/patjak/facetimehd.git driver
     cd driver || exit 1
-    make -C "/usr/src/kernels/${KERNEL_VERSION}" M="$(pwd)" modules || exit 1
+    make LLVM=1 -C "/usr/src/kernels/${KERNEL_VERSION}" M="$(pwd)" modules || exit 1
 
     _fthd_dir="/usr/lib/modules/${KERNEL_VERSION}/extra/facetimehd"
     mkdir -p "${_fthd_dir}"

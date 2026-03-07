@@ -527,8 +527,13 @@ rm -rf /var/cache/dnf/* /var/tmp/dnf-* || true
 
 if [ "${INITRAMFS}" = "true" ]; then
     log "Generating initramfs."
+    if [ -f "/usr/libexec/rpm-ostree/wrapped/dracut" ]; then
+        _dracut_bin="/usr/libexec/rpm-ostree/wrapped/dracut"
+    else
+        _dracut_bin="/usr/bin/dracut"
+    fi
     _tmp=$(mktemp)
-    DRACUT_NO_XATTR=1 /usr/bin/dracut \
+    DRACUT_NO_XATTR=1 "${_dracut_bin}" \
         --no-hostonly \
         --kver "${KERNEL_VERSION}" \
         --reproducible \

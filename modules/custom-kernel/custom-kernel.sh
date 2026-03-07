@@ -325,6 +325,39 @@ git clone https://github.com/dlundqvist/xone.git "${_tmp_xone}"
 rm -rf "${_tmp_xone}"
 
 # ---------------------------------------------------------------------------
+# Build facetimehd module (Broadcom 1570)
+# ---------------------------------------------------------------------------
+
+log "Building facetimehd module from source."
+# Ensure build requirements and extraction tools are installed
+dnf install -y git make gcc curl cpio xz
+TRANSIENT="${TRANSIENT} cpio xz"
+
+_tmp_fthd=$(mktemp -d)
+
+(
+    cd "${_tmp_fthd}" || exit 1
+
+    # Build kernel module
+    git clone https://github.com/patjak/facetimehd.git driver
+    cd driver || exit 1
+    make -C "/usr/src/kernels/${KERNEL_VERSION}" M="$(pwd)" modules || exit 1
+
+    _fthd_dir="/usr/lib/modules/${KERNEL_VERSION}/extra/facetimehd"
+    mkdir -p "${_fthd_dir}"
+    cp -p *.ko "${_fthd_dir}/"
+    cd ..
+
+    # Download and extract firmware
+    git clone https://github.com/patjak/facetimehd-firmware.git firmware
+    cd firmware || exit 1
+    make || log "Warning: facetimehd firmware extraction failed."
+    make install DESTDIR="" FW_DIR="/usr/lib/firmware/facetimehd" || log "Warning: facetimehd firmware install failed."
+) || exit 1
+
+rm -rf "${_tmp_fthd}"
+
+# ---------------------------------------------------------------------------
 # Build Nvidia modules (optional)
 # ---------------------------------------------------------------------------
 

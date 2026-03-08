@@ -370,6 +370,8 @@ if [ "${NVIDIA}" = "true" ]; then
         https://negativo17.org/repos/fedora-nvidia.repo \
         -o /etc/yum.repos.d/fedora-nvidia.repo
 
+    depmod -a "${KERNEL_VERSION}" || true
+
     log "Building Nvidia kernel modules."
     disable_akmodsbuild || exit 1
 
@@ -496,6 +498,8 @@ fi
 # Remove transient build packages
 # sign-file (inside *-devel-matched) is no longer needed past this point.
 # ---------------------------------------------------------------------------
+
+depmod -a "${KERNEL_VERSION}" || true
 
 log "Removing transient build packages: ${TRANSIENT}"
 # SC2086: intentional word-splitting on space-separated package list

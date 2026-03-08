@@ -299,7 +299,7 @@ restore_akmodsbuild
 log "Building xone module from source."
 # Ensure build requirements and bsdtar (for firmware extraction) are installed
 dnf install -y git make gcc clang lld curl bsdtar
-TRANSIENT="${TRANSIENT} git make gcc clang lld bsdtar"
+TRANSIENT="${TRANSIENT} make gcc clang lld"
 
 _tmp_xone=$(mktemp -d)
 git clone https://github.com/dlundqvist/xone.git "${_tmp_xone}"
@@ -331,7 +331,7 @@ rm -rf "${_tmp_xone}"
 log "Building facetimehd module from source."
 # Ensure build requirements and extraction tools are installed
 dnf install -y git make gcc clang lld curl cpio xz
-TRANSIENT="${TRANSIENT} clang lld cpio xz"
+TRANSIENT="${TRANSIENT} clang lld"
 
 _tmp_fthd=$(mktemp -d)
 

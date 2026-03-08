@@ -522,6 +522,9 @@ dnf -y clean all || true
 rm -rf /var/cache/dnf/* /var/tmp/dnf-* || true
 
 # ---------------------------------------------------------------------------
+log "Updating kernel module dependencies."
+depmod -a "${KERNEL_VERSION}"
+
 # Initramfs
 # ---------------------------------------------------------------------------
 

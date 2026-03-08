@@ -310,9 +310,9 @@ git clone https://github.com/dlundqvist/xone.git "${_tmp_xone}"
     make LLVM=1 -C "/usr/src/kernels/${KERNEL_VERSION}" M="${_tmp_xone}" modules || exit 1
 
     # Install the built .ko modules
-    _xone_dir="/usr/lib/modules/${KERNEL_VERSION}/extra/xone"
-    mkdir -p "${_xone_dir}"
-    cp -p *.ko "${_xone_dir}/"
+    make LLVM=1 -C "/usr/src/kernels/${KERNEL_VERSION}" M="${_tmp_xone}" INSTALL_MOD_PATH=/ INSTALL_MOD_DIR=extra/xone modules_install || exit 1
+    
+    
 
     # Install modprobe blacklist (disables xpad) and firmware script
     install -D -m 644 install/modprobe.conf /etc/modprobe.d/xone-blacklist.conf
@@ -343,9 +343,9 @@ _tmp_fthd=$(mktemp -d)
     cd driver || exit 1
     make LLVM=1 -C "/usr/src/kernels/${KERNEL_VERSION}" M="$(pwd)" modules || exit 1
 
-    _fthd_dir="/usr/lib/modules/${KERNEL_VERSION}/extra/facetimehd"
-    mkdir -p "${_fthd_dir}"
-    cp -p *.ko "${_fthd_dir}/"
+    make LLVM=1 -C "/usr/src/kernels/${KERNEL_VERSION}" M="$(pwd)" INSTALL_MOD_PATH=/ INSTALL_MOD_DIR=extra/facetimehd modules_install || exit 1
+    
+    
     cd ..
 
     # Download and extract firmware

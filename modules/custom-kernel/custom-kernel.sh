@@ -411,6 +411,12 @@ EOF
 fi
 
 # ---------------------------------------------------------------------------
+# Extract the built modules directly to guarantee they end up in /usr/lib/modules
+# akmods compiles them into RPMs, but the built kmods might not be fully installed 
+# into /lib/modules/ due to dracut failures in scriptlets
+log "Extracting compiled akmods RPMs"
+find /var/cache/akmods -name "*.rpm" -exec rpm -Uvh --force --nodeps --noscripts {} \;
+
 # SecureBoot signing
 # ---------------------------------------------------------------------------
 
@@ -430,15 +436,10 @@ fi
 # sign-file (inside *-devel-matched) is no longer needed past this point.
 # ---------------------------------------------------------------------------
 
+
+
 # Ensure userspace tools and firmware are not removed as unused dependencies
 dnf mark install xone xone-firmware v4l2loopback || true
-
-# Extract the built modules directly to guarantee they end up in /usr/lib/modules
-# akmods installs them, but it might fail due to missing dracut or other scriptlet errors in the container.
-find /var/cache/akmods -name "*.rpm" -exec rpm -Uvh --force --nodeps --noscripts {} \;
-
-# Run depmod so the new modules are discoverable by modprobe
-depmod -a "${KERNEL_VERSION}" || true
 
 log "Removing transient build packages: ${TRANSIENT}"
 # SC2086: intentional word-splitting on space-separated package list
@@ -465,6 +466,10 @@ dnf -y clean all || true
 rm -rf /var/cache/dnf/* /var/tmp/dnf-* || true
 
 # ---------------------------------------------------------------------------
+# Run depmod so the new modules are discoverable by modprobe
+log "Updating module dependency map for ${KERNEL_VERSION}"
+depmod -a "${KERNEL_VERSION}" || true
+
 # Initramfs
 # ---------------------------------------------------------------------------
 

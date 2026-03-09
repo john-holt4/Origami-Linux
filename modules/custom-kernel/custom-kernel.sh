@@ -244,7 +244,7 @@ dnf -y copr enable "${COPR_REPO}"
 log "Installing kernel packages: ${KERNEL_PACKAGES}"
 # SC2086: intentional word-splitting on space-separated package list
 # shellcheck disable=SC2086
-dnf -y install $KERNEL_PACKAGES akmods dracut
+dnf -y install $KERNEL_PACKAGES akmods
 
 KERNEL_VERSION=$(rpm -q "${KERNEL_PKG}" --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}') || exit 1
 log "Kernel version: ${KERNEL_VERSION}"
@@ -291,71 +291,6 @@ dnf -y remove rpmfusion-free-release
 rm -f /etc/yum.repos.d/rpmfusion-free*.repo
 
 restore_akmodsbuild
-
-# ---------------------------------------------------------------------------
-# Build xone module (Xbox Controller)
-# ---------------------------------------------------------------------------
-
-log "Building xone module from source."
-# Ensure build requirements and bsdtar (for firmware extraction) are installed
-dnf install -y git make gcc clang lld curl bsdtar
-TRANSIENT="${TRANSIENT} make gcc clang lld"
-
-_tmp_xone=$(mktemp -d)
-git clone https://github.com/dlundqvist/xone.git "${_tmp_xone}"
-
-(
-    cd "${_tmp_xone}" || exit 1
-    # Build the module against the custom kernel
-    make LLVM=1 -C "/usr/src/kernels/${KERNEL_VERSION}" M="${_tmp_xone}" modules || exit 1
-
-    # Install the built .ko modules
-    make LLVM=1 -C "/usr/src/kernels/${KERNEL_VERSION}" M="${_tmp_xone}" INSTALL_MOD_PATH=/ INSTALL_MOD_DIR=extra/xone modules_install || exit 1
-    
-    
-
-    # Install modprobe blacklist (disables xpad) and firmware script
-    install -D -m 644 install/modprobe.conf /etc/modprobe.d/xone-blacklist.conf
-    install -D -m 755 install/firmware.sh /usr/local/bin/xone-get-firmware.sh
-
-    # Download and extract the wireless dongle firmware into /lib/firmware
-    /usr/local/bin/xone-get-firmware.sh --skip-disclaimer || log "Warning: xone firmware download failed."
-) || exit 1
-
-rm -rf "${_tmp_xone}"
-
-# ---------------------------------------------------------------------------
-# Build facetimehd module (Broadcom 1570)
-# ---------------------------------------------------------------------------
-
-log "Building facetimehd module from source."
-# Ensure build requirements and extraction tools are installed
-dnf install -y git make gcc clang lld curl cpio xz
-TRANSIENT="${TRANSIENT} clang lld"
-
-_tmp_fthd=$(mktemp -d)
-
-(
-    cd "${_tmp_fthd}" || exit 1
-
-    # Build kernel module
-    git clone https://github.com/patjak/facetimehd.git driver
-    cd driver || exit 1
-    make LLVM=1 -C "/usr/src/kernels/${KERNEL_VERSION}" M="$(pwd)" modules || exit 1
-
-    make LLVM=1 -C "/usr/src/kernels/${KERNEL_VERSION}" M="$(pwd)" INSTALL_MOD_PATH=/ INSTALL_MOD_DIR=extra/facetimehd modules_install || exit 1
-    
-    
-    cd ..
-
-    # Download and extract firmware
-    git clone https://github.com/patjak/facetimehd-firmware.git firmware
-    cd firmware || exit 1
-    make || log "Warning: facetimehd firmware extraction failed."
-    make install DESTDIR="" FW_DIR="/usr/lib/firmware/facetimehd" || log "Warning: facetimehd firmware install failed."
-) || exit 1
-
-rm -rf "${_tmp_fthd}"
 
 # ---------------------------------------------------------------------------
 # Build Nvidia modules (optional)
@@ -500,14 +435,14 @@ fi
 log "Removing transient build packages: ${TRANSIENT}"
 # SC2086: intentional word-splitting on space-separated package list
 # shellcheck disable=SC2086
-dnf -y --setopt=clean_requirements_on_remove=False remove $TRANSIENT || true
+dnf -y remove $TRANSIENT || true
 
 # Safety-net: remove any remaining akmod-* or *-devel-matched packages.
 _residual=$(rpm -qa --queryformat '%{NAME}\n' | grep -E '^akmod-|(-devel-matched)$' || true)
 if [ -n "${_residual}" ]; then
     log "Removing residual build packages: ${_residual}"
     # shellcheck disable=SC2086
-    dnf -y --setopt=clean_requirements_on_remove=False remove $_residual || true
+    dnf -y remove $_residual || true
 fi
 
 # Nuke kernel build trees (belt-and-suspenders after devel-matched removal).
@@ -522,28 +457,13 @@ dnf -y clean all || true
 rm -rf /var/cache/dnf/* /var/tmp/dnf-* || true
 
 # ---------------------------------------------------------------------------
-log "Updating kernel module dependencies."
-depmod -a "${KERNEL_VERSION}"
-
 # Initramfs
 # ---------------------------------------------------------------------------
 
 if [ "${INITRAMFS}" = "true" ]; then
     log "Generating initramfs."
-    if [ ! -x "/usr/bin/dracut" ] || [ ! -d "/usr/lib/dracut/modules.d/50ostree" ]; then
-        dnf -y install dracut ostree
-    fi
-    if [ -x "/usr/libexec/rpm-ostree/wrapped/dracut" ]; then
-        _dracut_bin="/usr/libexec/rpm-ostree/wrapped/dracut"
-    elif command -v dracut >/dev/null 2>&1; then
-        _dracut_bin="$(command -v dracut)"
-    else
-        err "dracut not found (checked wrapped path and PATH)."
-        err "Install dracut before initramfs generation."
-        exit 1
-    fi
     _tmp=$(mktemp)
-    DRACUT_NO_XATTR=1 "${_dracut_bin}" \
+    DRACUT_NO_XATTR=1 /usr/bin/dracut \
         --no-hostonly \
         --kver "${KERNEL_VERSION}" \
         --reproducible \

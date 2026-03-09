@@ -256,39 +256,37 @@ log "Cleaning up COPR repos."
 rm -f /etc/yum.repos.d/*copr*
 
 # ---------------------------------------------------------------------------
-# Build v4l2loopback
+# Build v4l2loopback and xone
 # ---------------------------------------------------------------------------
 
-log "Building v4l2loopback module."
+log "Building v4l2loopback and xone modules."
 disable_akmodsbuild || exit 1
 
-log "Enabling RPM Fusion Free repo."
-dnf -y install \
-    "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm"
+log "Enabling Terra repo."
+curl -Lo /etc/yum.repos.d/terra.repo "https://github.com/terrapkg/subatomic-repos/raw/main/terra.repo"
 
 dnf install -y --setopt=install_weak_deps=False --setopt=tsflags=noscripts \
-    akmod-v4l2loopback
-TRANSIENT="${TRANSIENT} akmod-v4l2loopback"
+    akmod-v4l2loopback akmod-xone
+TRANSIENT="${TRANSIENT} akmod-v4l2loopback akmod-xone"
 
-akmods --force --verbose --kernels "${KERNEL_VERSION}" --kmod v4l2loopback
+akmods --force --verbose --kernels "${KERNEL_VERSION}" --kmod v4l2loopback --kmod xone
 
 # akmods always exits 0, so check for failure logs explicitly.
 _fail_found=false
-for _f in /var/cache/akmods/v4l2loopback/*-for-"${KERNEL_VERSION}".failed.log; do
+for _f in /var/cache/akmods/v4l2loopback/*-for-"${KERNEL_VERSION}".failed.log /var/cache/akmods/xone/*-for-"${KERNEL_VERSION}".failed.log; do
     [ -f "${_f}" ] && _fail_found=true && break
 done
 if [ "${_fail_found}" = "true" ]; then
-    err "v4l2loopback akmod build failed:"
-    for _f in /var/cache/akmods/v4l2loopback/*-for-"${KERNEL_VERSION}".failed.log; do
+    err "akmod build failed for v4l2loopback or xone:"
+    for _f in /var/cache/akmods/v4l2loopback/*-for-"${KERNEL_VERSION}".failed.log /var/cache/akmods/xone/*-for-"${KERNEL_VERSION}".failed.log; do
         [ -f "${_f}" ] && cat "${_f}"
     done
     restore_akmodsbuild
     exit 1
 fi
 
-log "Cleaning RPM Fusion Free repo."
-dnf -y remove rpmfusion-free-release
-rm -f /etc/yum.repos.d/rpmfusion-free*.repo
+log "Cleaning Terra repo."
+rm -f /etc/yum.repos.d/terra.repo
 
 restore_akmodsbuild
 

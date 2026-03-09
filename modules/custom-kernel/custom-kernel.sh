@@ -265,7 +265,7 @@ disable_akmodsbuild || exit 1
 log "Enabling Terra repo."
 curl -Lo /etc/yum.repos.d/terra.repo "https://github.com/terrapkg/subatomic-repos/raw/main/terra.repo"
 
-dnf install -y --setopt=install_weak_deps=False --setopt=tsflags=noscripts \
+dnf install -y --setopt=install_weak_deps=False \
     akmod-v4l2loopback akmod-xone
 TRANSIENT="${TRANSIENT} akmod-v4l2loopback akmod-xone"
 

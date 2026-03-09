@@ -265,7 +265,7 @@ disable_akmodsbuild || exit 1
 log "Enabling Terra repo."
 curl -Lo /etc/yum.repos.d/terra.repo "https://github.com/terrapkg/subatomic-repos/raw/main/terra.repo"
 
-dnf install -y --setopt=install_weak_deps=False \
+dnf install -y --setopt=install_weak_deps=False --setopt=tsflags=noscripts \
     akmod-v4l2loopback akmod-xone
 TRANSIENT="${TRANSIENT} akmod-v4l2loopback akmod-xone"
 
@@ -429,6 +429,16 @@ fi
 # Remove transient build packages
 # sign-file (inside *-devel-matched) is no longer needed past this point.
 # ---------------------------------------------------------------------------
+
+# Ensure userspace tools and firmware are not removed as unused dependencies
+dnf mark install xone xone-firmware v4l2loopback || true
+
+# Extract the built modules directly to guarantee they end up in /usr/lib/modules
+# akmods installs them, but it might fail due to missing dracut or other scriptlet errors in the container.
+find /var/cache/akmods -name "*.rpm" -exec rpm -Uvh --force --nodeps --noscripts {} \;
+
+# Run depmod so the new modules are discoverable by modprobe
+depmod -a "${KERNEL_VERSION}" || true
 
 log "Removing transient build packages: ${TRANSIENT}"
 # SC2086: intentional word-splitting on space-separated package list

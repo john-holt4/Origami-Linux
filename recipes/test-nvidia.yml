@@ -18,6 +18,7 @@ modules:
     source: local
     kernel: cachyos-lto
     nvidia: true
+    initramfs: true
     secrets:
       - type: file
         source: .secure_files/MOK.priv
@@ -36,7 +37,7 @@ modules:
       ID: origami-test
       ID_LIKE: fedora
       NAME: Origami Linux Test
-      PRETTY_NAME: "Origami Linux 2026.03"
+      PRETTY_NAME: "Origami Linux 2026.03 (Test Nvidia)"
       HOME_URL: "https://origami.wf/"
       BUG_REPORT_URL: "https://gitlab.com/groups/origami-linux/-/issues"
       DEFAULT_HOSTNAME: origami

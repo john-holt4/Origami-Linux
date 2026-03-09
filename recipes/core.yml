@@ -98,8 +98,6 @@ modules:
 
   - type: fonts
     fonts:
-      nerd-fonts:
-        - JetBrainsMono
       url-fonts:
         - name: NotoColorEmoji
           url: https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf

@@ -14,6 +14,7 @@ modules:
   - type: custom-kernel
     source: local
     kernel: cachyos-lto
+    initramfs: true
     secrets:
       - type: file
         source: .secure_files/MOK.priv

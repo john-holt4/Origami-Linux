@@ -293,6 +293,41 @@ rm -f /etc/yum.repos.d/rpmfusion-free*.repo
 restore_akmodsbuild
 
 # ---------------------------------------------------------------------------
+# Build xone
+# ---------------------------------------------------------------------------
+
+log "Building xone module."
+disable_akmodsbuild || exit 1
+
+log "Enabling sentry/xone copr."
+dnf -y copr enable sentry/xone
+
+dnf install -y --setopt=install_weak_deps=False --setopt=tsflags=noscripts \
+    akmod-xone xone
+TRANSIENT="${TRANSIENT} akmod-xone"
+
+akmods --force --verbose --kernels "${KERNEL_VERSION}" --kmod xone
+
+# akmods always exits 0, so check for failure logs explicitly.
+_fail_found=false
+for _f in /var/cache/akmods/xone/*-for-"${KERNEL_VERSION}".failed.log; do
+    [ -f "${_f}" ] && _fail_found=true && break
+done
+if [ "${_fail_found}" = "true" ]; then
+    err "xone akmod build failed:"
+    for _f in /var/cache/akmods/xone/*-for-"${KERNEL_VERSION}".failed.log; do
+        [ -f "${_f}" ] && cat "${_f}"
+    done
+    restore_akmodsbuild
+    exit 1
+fi
+
+log "Cleaning sentry/xone copr."
+rm -f /etc/yum.repos.d/*sentry*xone*.repo
+
+restore_akmodsbuild
+
+# ---------------------------------------------------------------------------
 # Build Nvidia modules (optional)
 # ---------------------------------------------------------------------------
 

@@ -256,29 +256,29 @@ log "Cleaning up COPR repos."
 rm -f /etc/yum.repos.d/*copr*
 
 # ---------------------------------------------------------------------------
-# Build v4l2loopback and xone
+# Build v4l2loopback
 # ---------------------------------------------------------------------------
 
-log "Building v4l2loopback and xone modules."
+log "Building v4l2loopback modules."
 disable_akmodsbuild || exit 1
 
 log "Enabling Terra repo."
 curl -Lo /etc/yum.repos.d/terra.repo "https://github.com/terrapkg/subatomic-repos/raw/main/terra.repo"
 
 dnf install -y --setopt=install_weak_deps=False --setopt=tsflags=noscripts \
-    akmod-v4l2loopback akmod-xone
-TRANSIENT="${TRANSIENT} akmod-v4l2loopback akmod-xone"
+    akmod-v4l2loopback
+TRANSIENT="${TRANSIENT} akmod-v4l2loopback"
 
-akmods --force --verbose --kernels "${KERNEL_VERSION}" --kmod v4l2loopback --kmod xone
+akmods --force --verbose --kernels "${KERNEL_VERSION}" --kmod v4l2loopback
 
 # akmods always exits 0, so check for failure logs explicitly.
 _fail_found=false
-for _f in /var/cache/akmods/v4l2loopback/*-for-"${KERNEL_VERSION}".failed.log /var/cache/akmods/xone/*-for-"${KERNEL_VERSION}".failed.log; do
+for _f in /var/cache/akmods/v4l2loopback/*-for-"${KERNEL_VERSION}".failed.log; do
     [ -f "${_f}" ] && _fail_found=true && break
 done
 if [ "${_fail_found}" = "true" ]; then
-    err "akmod build failed for v4l2loopback or xone:"
-    for _f in /var/cache/akmods/v4l2loopback/*-for-"${KERNEL_VERSION}".failed.log /var/cache/akmods/xone/*-for-"${KERNEL_VERSION}".failed.log; do
+    err "akmod build failed for v4l2loopback:"
+    for _f in /var/cache/akmods/v4l2loopback/*-for-"${KERNEL_VERSION}".failed.log; do
         [ -f "${_f}" ] && cat "${_f}"
     done
     restore_akmodsbuild
@@ -411,12 +411,6 @@ EOF
 fi
 
 # ---------------------------------------------------------------------------
-# Extract the built modules directly to guarantee they end up in /usr/lib/modules
-# akmods compiles them into RPMs, but the built kmods might not be fully installed 
-# into /lib/modules/ due to dracut failures in scriptlets
-log "Extracting compiled akmods RPMs"
-find /var/cache/akmods -name "*.rpm" -exec rpm -Uvh --force --nodeps --noscripts {} \;
-
 # SecureBoot signing
 # ---------------------------------------------------------------------------
 
@@ -435,11 +429,6 @@ fi
 # Remove transient build packages
 # sign-file (inside *-devel-matched) is no longer needed past this point.
 # ---------------------------------------------------------------------------
-
-
-
-# Ensure userspace tools and firmware are not removed as unused dependencies
-dnf mark install xone xone-firmware v4l2loopback || true
 
 log "Removing transient build packages: ${TRANSIENT}"
 # SC2086: intentional word-splitting on space-separated package list
@@ -466,10 +455,6 @@ dnf -y clean all || true
 rm -rf /var/cache/dnf/* /var/tmp/dnf-* || true
 
 # ---------------------------------------------------------------------------
-# Run depmod so the new modules are discoverable by modprobe
-log "Updating module dependency map for ${KERNEL_VERSION}"
-depmod -a "${KERNEL_VERSION}" || true
-
 # Initramfs
 # ---------------------------------------------------------------------------
 

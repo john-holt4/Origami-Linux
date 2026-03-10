@@ -259,11 +259,12 @@ rm -f /etc/yum.repos.d/*copr*
 # Build v4l2loopback
 # ---------------------------------------------------------------------------
 
-log "Building v4l2loopback modules."
+log "Building v4l2loopback module."
 disable_akmodsbuild || exit 1
 
-log "Enabling Terra repo."
-curl -Lo /etc/yum.repos.d/terra.repo "https://github.com/terrapkg/subatomic-repos/raw/main/terra.repo"
+log "Enabling RPM Fusion Free repo."
+dnf -y install \
+    "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm"
 
 dnf install -y --setopt=install_weak_deps=False --setopt=tsflags=noscripts \
     akmod-v4l2loopback
@@ -277,7 +278,7 @@ for _f in /var/cache/akmods/v4l2loopback/*-for-"${KERNEL_VERSION}".failed.log; d
     [ -f "${_f}" ] && _fail_found=true && break
 done
 if [ "${_fail_found}" = "true" ]; then
-    err "akmod build failed for v4l2loopback:"
+    err "v4l2loopback akmod build failed:"
     for _f in /var/cache/akmods/v4l2loopback/*-for-"${KERNEL_VERSION}".failed.log; do
         [ -f "${_f}" ] && cat "${_f}"
     done
@@ -285,8 +286,9 @@ if [ "${_fail_found}" = "true" ]; then
     exit 1
 fi
 
-log "Cleaning Terra repo."
-rm -f /etc/yum.repos.d/terra.repo
+log "Cleaning RPM Fusion Free repo."
+dnf -y remove rpmfusion-free-release
+rm -f /etc/yum.repos.d/rpmfusion-free*.repo
 
 restore_akmodsbuild
 

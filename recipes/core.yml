@@ -57,6 +57,7 @@ modules:
         - yazi
         - eza
         - starship
+        - stress-ng
         - cbonsai
         - sudo-rs
         - uutils-coreutils

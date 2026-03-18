@@ -118,13 +118,6 @@ modules:
           title: COSMIC
           url: https://apt.pop-os.org/cosmic/cosmic.flatpakrepo
 
-  - type: kargs
-    kargs:
-      - mitigations=off
-      - nowatchdog
-      - split_lock_detect=off
-      - audit=0
-
   - type: script
     scripts:
       - adios-ioscheduler.sh

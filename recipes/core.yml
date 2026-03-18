@@ -56,7 +56,6 @@ modules:
         - zoxide
         - yazi
         - eza
-        - hyperfine
         - starship
         - cbonsai
         - sudo-rs

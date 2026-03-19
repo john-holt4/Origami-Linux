@@ -27,9 +27,9 @@ modules:
         - cosmic-ext-applet-classic-menu
         - cosmic-ext-applet-emoji-selector
         - cosmic-ext-applet-external-monitor-brightness
-        - cosmic-ext-applet-minimon
         - cosmic-ext-applet-ollama
         - cosmic-ext-applet-places-menu
+        - cosmic-ext-applet-system-monitor
         - cosmic-ext-applet-tailscale
         - cosmic-ext-examine
         - cosmic-ext-sniffnet

@@ -24,7 +24,6 @@ modules:
         - cosmic-ext-applet-sysinfo
         - cosmic-ext-applet-logomenu
         - cosmic-ext-xcalendar
-        - cosmic-ext-camera
         - cosmic-ext-applet-classic-menu
         - cosmic-ext-applet-emoji-selector
         - cosmic-ext-applet-external-monitor-brightness

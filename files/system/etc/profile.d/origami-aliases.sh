@@ -108,10 +108,10 @@ alias sudo='sudo-rs '
 alias su='su-rs'
 
 # --- Directory listings via eza ----------------------------------------------
-alias la='eza -la --icons'
-alias lt='eza --tree --level=2 --icons'
-ls() { command eza --icons "$@"; }
-ll() { command eza -l --icons "$@"; }
+alias la='lsd -a'
+alias lt='lsd --tree'
+ls() { command lsd "$@"; }
+ll() { command lsd -l "$@"; }
 
 # --- Interactive tooling -----------------------------------------------------
 _eval_if_available fzf --bash

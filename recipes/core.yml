@@ -70,7 +70,7 @@ modules:
         - ripgrep
         - zoxide
         - yazi
-        - eza
+        - lsd
         - starship
         - stress-ng
         - cbonsai

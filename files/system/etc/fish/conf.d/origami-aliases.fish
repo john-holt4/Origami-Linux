@@ -97,13 +97,13 @@ alias su su-rs
 alias cmatrix termflix
 
 # --- Directory listings via eza ----------------------------------------------
-alias la 'eza -la --icons'
-alias lt 'eza --tree --level=2 --icons'
+alias la 'lsd -la'
+alias lt 'lsd --tree'
 function ls
-    command eza --icons $argv
+    command lsd $argv
 end
 function ll
-    command eza -l --icons $argv
+    command lsd -l $argv
 end
 
 # --- Interactive tooling -----------------------------------------------------

@@ -88,7 +88,6 @@ end
 
 # --- Modern replacements -----------------------------------------------------
 # Note: These are applied early but will be overridden by nag functions if names overlap
-alias htop btop
 alias update topgrade
 alias docker podman
 alias docker-compose podman-compose

@@ -82,7 +82,6 @@ modules:
         - firefox-langpacks
         - gnome-system-monitor
         - ark
-        - htop
         - toolbox
         - google-noto-color-emoji-fonts
         - gnome-disk-utility

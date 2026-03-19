@@ -99,7 +99,6 @@ fastfetch() {
 }
 
 # --- Modern replacements -----------------------------------------------------
-alias htop='btop'
 alias cmatrix='termflix'
 alias update='topgrade'
 alias docker='podman'

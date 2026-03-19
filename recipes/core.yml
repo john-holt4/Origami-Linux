@@ -56,8 +56,8 @@ modules:
         - zoxide
         - yazi
         - eza
-        - hyperfine
         - starship
+        - stress-ng
         - cbonsai
         - sudo-rs
         - uutils-coreutils
@@ -82,7 +82,6 @@ modules:
         - firefox-langpacks
         - gnome-system-monitor
         - ark
-        - htop
         - toolbox
         - google-noto-color-emoji-fonts
         - gnome-disk-utility

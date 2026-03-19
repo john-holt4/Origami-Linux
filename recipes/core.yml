@@ -30,8 +30,6 @@ modules:
         - cosmic-ext-applet-minimon
         - cosmic-ext-applet-ollama
         - cosmic-ext-applet-places-menu
-        - cosmic-ext-applet-sysinfo
-        - cosmic-ext-applet-system-monitor
         - cosmic-ext-applet-tailscale
         - cosmic-ext-examine
         - cosmic-ext-sniffnet

@@ -11,7 +11,7 @@ modules:
         - name: ligenix/enterprise-cosmic
           chroot: rhel+epel-10-x86_64
       files:
-        - https://github.com/terrapkg/subatomic-repos/raw/main/terra.repo
+        - terrael.repo
         - https://pkg.cloudflareclient.com/cloudflare-warp-ascii.repo
     install:
       packages:

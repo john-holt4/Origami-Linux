@@ -33,20 +33,14 @@ modules:
         - cosmic-ext-camera
         - inputplumber
         - NetworkManager-openvpn-gnome
-        - NetworkManager-strongswan-gnome
         - fresh
-        - v4l-utils
         - fish
-        - dysk
         - lazygit
         - helix
-        - procs
-        - du-dust
         - neovim
         - python3-neovim
         - zellij
         - topgrade
-        - rsms-inter-fonts
         - google-noto-sans-myanmar-fonts
         - google-noto-serif-myanmar-fonts
         - bibata-cursor-theme
@@ -58,24 +52,17 @@ modules:
         - fastfetch
         - podman-compose
         - aria2
-        - cava
         - bat
         - ripgrep
-        - zoxide
         - yazi
-        - lsd
         - starship
         - stress-ng
-        - cbonsai
-        - sudo-rs
-        - uutils-coreutils
         - byobu
         - micro
         - steam-devices
         - ShellCheck
         - lm_sensors
         - surge
-        - termflix
     remove:
       auto-remove: true
       packages:

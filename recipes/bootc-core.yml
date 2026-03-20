@@ -5,6 +5,11 @@ modules:
       - install-apps.sh
 
   - type: dnf
+    install:
+      packages:
+        - epel-release
+
+  - type: dnf
     repos:
       cleanup: true
       copr:
@@ -15,7 +20,6 @@ modules:
         - https://pkg.cloudflareclient.com/cloudflare-warp-ascii.repo
     install:
       packages:
-        - epel-release
         - terra-release
         - cosmic-desktop
         - cosmic-ext-calculator
@@ -75,14 +79,7 @@ modules:
     remove:
       auto-remove: true
       packages:
-        - zram-generator-defaults
-        - firefox
-        - firefox-langpacks
-        - gnome-system-monitor
-        - ark
         - toolbox
-        - google-noto-color-emoji-fonts
-        - gnome-disk-utility
 
   - type: systemd
     system:

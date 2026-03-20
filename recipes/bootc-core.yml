@@ -7,7 +7,14 @@ modules:
   - type: script
     snippets:
       - "dnf config-manager --set-enabled crb"
-      - "dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm"
+
+  - type: dnf
+    install:
+      packages:
+        - epel-release
+
+  - type: script
+    snippets:
       - "dnf install --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terrael$releasever' terra-release"
 
   - type: dnf

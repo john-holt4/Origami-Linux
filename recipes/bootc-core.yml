@@ -8,7 +8,8 @@ modules:
     repos:
       cleanup: true
       copr:
-        - ligenix/enterprise-cosmic
+        - name: ligenix/enterprise-cosmic
+          chroot: rhel+epel-10-x86_64
       files:
         - https://github.com/terrapkg/subatomic-repos/raw/main/terra.repo
         - https://pkg.cloudflareclient.com/cloudflare-warp-ascii.repo

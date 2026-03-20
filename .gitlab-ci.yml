@@ -98,7 +98,7 @@ trigger-bootc-base-image-build:
     - if: "$CI_COMMIT_REF_NAME == $TEST_PIPELINE_BRANCH"
       changes:
         - recipes/bootc-base.yml
-        - recipes/core.yml
+        - recipes/bootc-core.yml
         - .gitlab-ci-bootc-base.yml
         - .gitlab-ci.yml
         - "files/**/*"

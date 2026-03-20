@@ -4,10 +4,11 @@ modules:
     scripts:
       - install-apps.sh
 
-  - type: dnf
-    install:
-      packages:
-        - epel-release
+  - type: script
+    snippets:
+      - "dnf config-manager --set-enabled crb"
+      - "dnf install epel-release"
+      - "dnf install --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terrael$releasever' terra-release"
 
   - type: dnf
     repos:
@@ -16,11 +17,9 @@ modules:
         - name: ligenix/enterprise-cosmic
           chroot: rhel+epel-10-x86_64
       files:
-        - terrael.repo
         - https://pkg.cloudflareclient.com/cloudflare-warp-ascii.repo
     install:
       packages:
-        - terra-release
         - cosmic-desktop
         - cosmic-ext-calculator
         - cosmic-ext-storage

@@ -1,5 +1,0 @@
-[terra]
-name=Terra $releasever
-baseurl=https://repos.fyralabs.com/terrael$releasever
-enabled=1
-gpgcheck=0

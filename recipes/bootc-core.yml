@@ -5,6 +5,11 @@ modules:
       - install-apps.sh
 
   - type: dnf
+    install:
+      packages:
+        - epel-release
+
+  - type: dnf
     repos:
       cleanup: true
       copr:
@@ -14,8 +19,6 @@ modules:
         - https://pkg.cloudflareclient.com/cloudflare-warp-ascii.repo
     install:
       packages:
-        - https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm
-        - epel-release
         - terra-release
         - cosmic-desktop
         - cosmic-ext-calculator

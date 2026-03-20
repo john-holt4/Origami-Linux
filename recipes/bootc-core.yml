@@ -14,6 +14,7 @@ modules:
         - https://pkg.cloudflareclient.com/cloudflare-warp-ascii.repo
     install:
       packages:
+        - https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm
         - epel-release
         - terra-release
         - cosmic-desktop

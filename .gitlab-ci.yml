@@ -85,3 +85,21 @@ trigger-test-nvidia-image-build:
         - .gitlab-ci.yml
         - "files/**/*"
         - "modules/**/*"
+
+# --- Trigger Test bootc Pipeline ---
+trigger-bootc-base-image-build:
+  stage: triggers
+  trigger:
+    include: .gitlab-ci-bootc-base.yml
+    strategy: depend
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: "$CI_COMMIT_REF_NAME == $TEST_PIPELINE_BRANCH"
+      changes:
+        - recipes/test-bootc.yml
+        - recipes/core.yml
+        - .gitlab-ci-test-bootc.yml
+        - .gitlab-ci.yml
+        - "files/**/*"
+        - "modules/**/*"

@@ -1,0 +1,9 @@
+include:
+  - local: .gitlab-ci-common.yml
+stages:
+  - build
+build-bootc-base-image:
+  extends: .bluebuild-job-template
+  stage: build
+  script:
+    - bluebuild build --verbose --compression-format zstd --push ./recipes/bootc-base.yml

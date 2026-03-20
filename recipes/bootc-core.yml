@@ -1,0 +1,120 @@
+# yaml-language-server: $schema=https://schema.blue-build.org/module-list-v1.json
+modules:
+  - type: script
+    scripts:
+      - install-apps.sh
+
+  - type: dnf
+    repos:
+      cleanup: true
+      copr:
+        - ligenix/enterprise-cosmic
+      files:
+        - https://github.com/terrapkg/subatomic-repos/raw/main/terra.repo
+        - https://pkg.cloudflareclient.com/cloudflare-warp-ascii.repo
+    install:
+      packages:
+        - terra-release
+        - cosmic-desktop
+        - cosmic-ext-calculator
+        - cosmic-ext-storage
+        - cosmic-ext-applet-clipboard-manager
+        - cosmic-ext-noctua
+        - cosmic-ext-applet-sysinfo
+        - cosmic-ext-applet-logomenu
+        - cosmic-ext-xcalendar
+        - cosmic-ext-tasks
+        - cosmic-ext-camera
+        - inputplumber
+        - NetworkManager-openvpn-gnome
+        - NetworkManager-strongswan-gnome
+        - fresh
+        - v4l-utils
+        - fish
+        - dysk
+        - lazygit
+        - helix
+        - procs
+        - du-dust
+        - neovim
+        - python3-neovim
+        - zellij
+        - topgrade
+        - rsms-inter-fonts
+        - google-noto-sans-myanmar-fonts
+        - google-noto-serif-myanmar-fonts
+        - bibata-cursor-theme
+        - cloudflare-warp
+        - lolcat
+        - figlet
+        - cowsay
+        - btop
+        - fastfetch
+        - podman-compose
+        - aria2
+        - cava
+        - bat
+        - ripgrep
+        - zoxide
+        - yazi
+        - lsd
+        - starship
+        - stress-ng
+        - cbonsai
+        - sudo-rs
+        - uutils-coreutils
+        - byobu
+        - micro
+        - steam-devices
+        - ShellCheck
+        - lm_sensors
+        - surge
+        - termflix
+    remove:
+      auto-remove: true
+      packages:
+        - zram-generator-defaults
+        - firefox
+        - firefox-langpacks
+        - gnome-system-monitor
+        - ark
+        - toolbox
+        - google-noto-color-emoji-fonts
+        - gnome-disk-utility
+
+  - type: systemd
+    system:
+      masked:
+        - flatpak-add-fedora-repos.service
+        - bootc-fetch-apply-updates.timer
+    user:
+      enabled:
+        - podman.socket
+
+  - type: fonts
+    fonts:
+      url-fonts:
+        - name: NotoColorEmoji
+          url: https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf
+        - name: Maple-Mono-NF
+          url: https://github.com/subframe7536/maple-font/releases/latest/download/MapleMono-NF-unhinted.zip
+
+  - type: default-flatpaks
+    configurations:
+      - notify: false
+        scope: user
+        repo:
+          name: flathub
+          title: Flathub
+      - notify: false
+        scope: user
+        repo:
+          name: cosmic
+          title: COSMIC
+          url: https://apt.pop-os.org/cosmic/cosmic.flatpakrepo
+
+  - type: script
+    scripts:
+      - adios-ioscheduler.sh
+      - install-theme.sh
+      - cleanup.sh

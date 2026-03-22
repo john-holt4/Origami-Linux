@@ -18,7 +18,7 @@ modules:
 
   - type: os-release
     properties:
-      ID: origami-test
+      ID: centos
       ID_LIKE: centos rhel fedora
       NAME: Origami Linux Test
       PRETTY_NAME: "Origami Linux 2026.03 (bootc)"

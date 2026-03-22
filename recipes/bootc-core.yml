@@ -15,7 +15,7 @@ modules:
 
   - type: script
     snippets:
-      - "dnf install --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terrael$releasever' terra-release"
+      - "dnf install --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terrael$releasever' terra-release -y"
 
   - type: dnf
     repos:

@@ -8,14 +8,9 @@ modules:
     snippets:
       - "dnf config-manager --set-enabled crb"
       - "dnf install epel-release -y"
-      # Terra Repo
       - "dnf install --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terrael$releasever' terra-release -y"
-      - "rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-terrael10"
-
-      # Copr Repo (Moved from the DNF module)
+      - "dnf makecache -y"
       - "dnf copr enable -y ligenix/enterprise-cosmic rhel+epel-10-x86_64"
-
-      # Cloudflare Repo (Using curl is the safest way to bypass DNF5 config-manager quirks)
       - "curl -Lo /etc/yum.repos.d/cloudflare-warp-ascii.repo https://pkg.cloudflareclient.com/cloudflare-warp-ascii.repo"
 
   - type: dnf

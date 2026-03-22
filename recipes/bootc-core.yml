@@ -4,9 +4,9 @@ modules:
     scripts:
       - install-apps.sh
 
-  - type: script
-    snippets:
-      - "dnf config-manager --set-enabled crb"
+  #- type: script
+  #  snippets:
+  #    - "dnf config-manager --set-enabled crb"
 
   - type: dnf
     install:
@@ -20,7 +20,7 @@ modules:
 
   - type: dnf
     repos:
-      cleanup: true
+      #cleanup: true
       copr:
         - name: ligenix/enterprise-cosmic
           chroot: rhel+epel-10-x86_64

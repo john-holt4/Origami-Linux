@@ -16,6 +16,7 @@ modules:
   - type: dnf
     install:
       packages:
+        - policycoreutils
         - unzip
         - cosmic-desktop
         - cosmic-ext-calculator

@@ -7,6 +7,7 @@ modules:
   - type: script
     snippets:
       - "dnf config-manager --set-enabled crb"
+      - "dnf install epel-release"
       # Terra Repo
       - "dnf install --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terrael$releasever' terra-release -y"
       - "rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-terrael10"

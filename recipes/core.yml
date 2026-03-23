@@ -72,6 +72,8 @@ modules:
         - cachyos-settings
         - scx-scheds
         - scx-tools
+        - scx-manager
+        - ananicy-cpp
         - ShellCheck
         - lm_sensors
         - surge
@@ -93,6 +95,8 @@ modules:
 
   - type: systemd
     system:
+      enabled:
+        - ananicy-cpp
       masked:
         - flatpak-add-fedora-repos.service
         - bootc-fetch-apply-updates.timer

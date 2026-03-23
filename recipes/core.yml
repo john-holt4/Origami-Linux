@@ -46,6 +46,7 @@ modules:
         - rsms-inter-fonts
         - google-noto-sans-myanmar-fonts
         - google-noto-serif-myanmar-fonts
+        - maple-fonts
         - bibata-cursor-theme
         - cloudflare-warp
         - lolcat
@@ -57,6 +58,7 @@ modules:
         - aria2
         - cava
         - bat
+        - bat-extras
         - ripgrep
         - zoxide
         - yazi
@@ -96,7 +98,7 @@ modules:
   - type: systemd
     system:
       enabled:
-        - ananicy-cpp
+        - ananicy-cpp.service
       masked:
         - flatpak-add-fedora-repos.service
         - bootc-fetch-apply-updates.timer
@@ -109,8 +111,6 @@ modules:
       url-fonts:
         - name: NotoColorEmoji
           url: https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf
-        - name: Maple-Mono-NF
-          url: https://github.com/subframe7536/maple-font/releases/latest/download/MapleMono-NF-unhinted.zip
 
   - type: default-flatpaks
     configurations:

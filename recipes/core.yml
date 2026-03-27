@@ -82,6 +82,8 @@ modules:
         - surge
         - termflix
         - unrar
+        - nix
+        - nix-daemon
         - repo: copr:copr.fedorainfracloud.org:lilay:tealdeer
           packages:
             - tealdeer

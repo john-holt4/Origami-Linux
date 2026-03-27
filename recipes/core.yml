@@ -102,6 +102,7 @@ modules:
     system:
       enabled:
         - ananicy-cpp.service
+        - nix.mount
       masked:
         - flatpak-add-fedora-repos.service
         - bootc-fetch-apply-updates.timer

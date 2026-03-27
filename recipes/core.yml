@@ -82,8 +82,7 @@ modules:
         - surge
         - termflix
         - unrar
-        - nix
-        - nix-daemon
+
         - repo: copr:copr.fedorainfracloud.org:lilay:tealdeer
           packages:
             - tealdeer
@@ -103,8 +102,6 @@ modules:
     system:
       enabled:
         - ananicy-cpp.service
-        - nix.mount
-        - nix-daemon.socket
       masked:
         - flatpak-add-fedora-repos.service
         - bootc-fetch-apply-updates.timer
@@ -136,5 +133,4 @@ modules:
     scripts:
       - adios-ioscheduler.sh
       - install-theme.sh
-      - setup-nix.sh
       - cleanup.sh

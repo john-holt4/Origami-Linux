@@ -1,5 +1,7 @@
 [Unit]
 Description=Bind mount for Nix store
+DefaultDependencies=no
+After=systemd-tmpfiles-setup.service
 Before=nix-daemon.service
 
 [Mount]
@@ -10,4 +12,3 @@ Options=bind
 
 [Install]
 WantedBy=multi-user.target
-

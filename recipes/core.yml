@@ -103,7 +103,7 @@ modules:
     system:
       enabled:
         - ananicy-cpp.service
-        - var-lib-nix.mount
+        - nix.mount
         - nix-daemon.socket
       masked:
         - flatpak-add-fedora-repos.service

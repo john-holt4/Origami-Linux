@@ -135,3 +135,4 @@ modules:
       - adios-ioscheduler.sh
       - install-theme.sh
       - cleanup.sh
+      - nix-root-dir.sh

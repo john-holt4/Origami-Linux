@@ -104,6 +104,7 @@ modules:
       enabled:
         - ananicy-cpp.service
         - nix-daemon.socket
+        - var-lib-nix.mount
       masked:
         - flatpak-add-fedora-repos.service
         - bootc-fetch-apply-updates.timer
@@ -135,8 +136,5 @@ modules:
     scripts:
       - adios-ioscheduler.sh
       - install-theme.sh
+      - setup-nix.sh
       - cleanup.sh
-
-  - type: files
-    files:
-      - system: /

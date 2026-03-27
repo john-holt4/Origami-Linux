@@ -103,6 +103,7 @@ modules:
     system:
       enabled:
         - ananicy-cpp.service
+        - nix-daemon.socket
       masked:
         - flatpak-add-fedora-repos.service
         - bootc-fetch-apply-updates.timer
@@ -135,3 +136,7 @@ modules:
       - adios-ioscheduler.sh
       - install-theme.sh
       - cleanup.sh
+
+  - type: files
+    files:
+      - system: /

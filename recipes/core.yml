@@ -37,7 +37,7 @@ modules:
         - fish
         - dysk
         - lazygit
-        - helix
+        #- helix
         - procs
         - du-dust
         - neovim

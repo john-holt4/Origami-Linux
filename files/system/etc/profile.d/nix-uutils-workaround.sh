@@ -4,4 +4,4 @@
 # This script can be removed when this is no longer an issue
 
 uu_true() { /usr/bin/uu_true; }
-uu_echo() { /usr/bin/uu_echo; }
+uu_echo() { /usr/bin/uu_echo "$@"; }

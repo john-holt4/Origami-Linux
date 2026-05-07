@@ -10,7 +10,6 @@ modules:
       copr:
         - bieszczaders/kernel-cachyos-addons
         - ligenix/cosmic-ext
-        - lilay/tealdeer
       files:
         - https://github.com/terrapkg/subatomic-repos/raw/main/terra.repo
         - https://pkg.cloudflareclient.com/cloudflare-warp-ascii.repo
@@ -82,10 +81,8 @@ modules:
         - surge
         - termflix
         - unrar
+        - tldr
 
-        - repo: copr:copr.fedorainfracloud.org:lilay:tealdeer
-          packages:
-            - tealdeer
     remove:
       auto-remove: true
       packages:

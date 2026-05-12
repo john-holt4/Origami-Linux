@@ -12,7 +12,7 @@ modules:
         - ligenix/cosmic-ext
       files:
         - https://github.com/terrapkg/subatomic-repos/raw/main/terra.repo
-        - https://pkg.cloudflareclient.com/cloudflare-warp-ascii.repo
+        #- https://pkg.cloudflareclient.com/cloudflare-warp-ascii.repo
     install:
       packages:
         - terra-release
@@ -48,7 +48,7 @@ modules:
         - google-noto-serif-myanmar-fonts
         - maple-fonts
         - bibata-cursor-theme
-        - cloudflare-warp
+        #- cloudflare-warp
         - lolcat
         - figlet
         - cowsay

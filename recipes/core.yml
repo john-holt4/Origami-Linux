@@ -10,6 +10,7 @@ modules:
       copr:
         - bieszczaders/kernel-cachyos-addons
         - ligenix/cosmic-ext
+        - traxtopel/webkit2gtk3
       files:
         - https://github.com/terrapkg/subatomic-repos/raw/main/terra.repo
         - https://pkg.cloudflareclient.com/cloudflare-warp-ascii.repo

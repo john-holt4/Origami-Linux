@@ -12,6 +12,7 @@ modules:
         - ligenix/cosmic-ext
       files:
         - https://github.com/terrapkg/subatomic-repos/raw/main/terra.repo
+        - https://repository.mullvad.net/rpm/stable/mullvad.repo
         #- https://pkg.cloudflareclient.com/cloudflare-warp-ascii.repo
     install:
       packages:
@@ -32,6 +33,7 @@ modules:
         - NetworkManager-openvpn-gnome
         - NetworkManager-strongswan-gnome
         - fresh
+        - mullvad-vpn
         - v4l-utils
         - fish
         - dysk

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 git clone https://github.com/vinceliuice/WhiteSur-icon-theme.git /tmp/WhiteSur-icon-theme
-/tmp/WhiteSur-icon-theme/install.sh -b -a
+/tmp/WhiteSur-icon-theme/install.sh -b -a -t all
 rm -rf /tmp/WhiteSur-icon-theme
 rm -rf /usr/share/backgrounds/cosmic
 rm -rf /usr/share/backgrounds/fedora-workstation

@@ -27,6 +27,7 @@ modules:
         - cosmic-ext-xcalendar
         - cosmic-ext-tasks
         - cosmic-ext-camera
+        - cutecosmic-qt6
         - inputplumber
         - https://gitlab.com/api/v4/projects/77221939/packages/generic/origami-update-applet/latest/origami-update-applet.fc%OS_VERSION%.x86_64.rpm
         - https://gitlab.com/api/v4/projects/76137389/packages/generic/cosmic-initial-setup/latest/cosmic-initial-setup.fc%OS_VERSION%.x86_64.rpm

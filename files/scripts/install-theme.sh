@@ -8,6 +8,7 @@ rm -rf /usr/share/backgrounds/cosmic
 rm -rf /usr/share/backgrounds/fedora-workstation
 rm -rf /usr/share/backgrounds/images
 rm -rf /usr/share/backgrounds/f43
+rm -rf /usr/share/backgrounds/f44
 rm -f /usr/share/backgrounds/default.jxl
 rm -f /usr/share/backgrounds/default-dark.jxl
 rm -f /usr/share/backgrounds/default.xml

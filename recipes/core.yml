@@ -13,7 +13,7 @@ modules:
       files:
         - https://github.com/terrapkg/subatomic-repos/raw/main/terra.repo
         - https://repository.mullvad.net/rpm/stable/mullvad.repo
-        - https://pkg.cloudflareclient.com/cloudflare-warp-ascii.repo
+        #- https://pkg.cloudflareclient.com/cloudflare-warp-ascii.repo
     install:
       packages:
         - terra-release
@@ -50,7 +50,7 @@ modules:
         - google-noto-serif-myanmar-fonts
         - maple-fonts
         - bibata-cursor-theme
-        - cloudflare-warp
+        #- cloudflare-warp
         - lolcat
         - figlet
         - cowsay

@@ -109,6 +109,7 @@ modules:
     user:
       enabled:
         - podman.socket
+        - origami-migrate.service
 
   - type: fonts
     fonts:

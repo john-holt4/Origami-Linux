@@ -1,4 +1,4 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "MEOW"
+ chmod +x /usr/share/origami/migrate-to-rakuos.sh

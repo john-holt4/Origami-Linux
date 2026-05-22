@@ -1,0 +1,11 @@
+[Unit]
+Description=Origami to RakuOS Migration Prompt
+
+[Service]
+Type=simple
+ExecStart=/usr/share/origami/migrate-to-rakuos.sh
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=%h/.Xauthority
+
+[Install]
+WantedBy=default.target

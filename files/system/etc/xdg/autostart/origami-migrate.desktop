@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Origami to RakuOS Migration Prompt
+Exec=/usr/share/origami/migrate-to-rakuos.sh
+Icon=dialog-warning
+Terminal=false
+X-GNOME-Autostart-enabled=true

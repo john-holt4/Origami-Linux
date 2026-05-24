@@ -6,7 +6,7 @@ SCRIPT_NAME="origami-migrate-to-rakuos"
 PROMPT_INTERVAL_DAYS=3
 PROMPT_INTERVAL_SECONDS=$((PROMPT_INTERVAL_DAYS * 24 * 60 * 60))
 
-RAKUOS_URL="https://rakuos.org/"
+RAKUOS_URL="https://rakuos.org/origami"
 RAKUOS_LOGO_URL="https://rakuos.org/themes/raku/assets/images/rakuos_whitelogo_med.png"
 
 STANDARD_REF="ostree-unverified-registry:registry.gitlab.com/rakuos/images/rakuos-cosmic:latest"

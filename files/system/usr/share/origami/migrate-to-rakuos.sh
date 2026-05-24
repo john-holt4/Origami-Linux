@@ -7,7 +7,7 @@ PROMPT_INTERVAL_DAYS=3
 PROMPT_INTERVAL_SECONDS=$((PROMPT_INTERVAL_DAYS * 24 * 60 * 60))
 STARTUP_DELAY_SECONDS=5
 
-RAKUOS_URL="https://rakuos.org/origami"
+RAKUOS_URL="https://rakuos.org/"
 RAKUOS_LOGO_URL="https://rakuos.org/themes/raku/assets/images/rakuos_whitelogo_med.png"
 
 STANDARD_REF="ostree-unverified-registry:registry.gitlab.com/rakuos/images/rakuos-cosmic:latest"
@@ -56,6 +56,69 @@ skip() {
     exit 0
 }
 
+flush_progress_state() {
+    [ "${progress_open:-0}" -eq 1 ] || return 0
+
+    if [ "${phase_text:-}" != "${last_sent_text:-}" ] || [ "${progress_value:-0}" -ne "${last_sent_value:--1}" ]; then
+        printf '# %s\n' "$phase_text" >&3 || true
+        printf '%s\n' "$progress_value" >&3 || true
+        last_sent_text="$phase_text"
+        last_sent_value="$progress_value"
+    fi
+}
+
+update_progress_from_log_line() {
+    local line="$1"
+    local current total completed mapped
+
+    case "$line" in
+        Pulling\ manifest:*)
+            if [ "$progress_value" -lt 3 ]; then
+                progress_value=3
+            fi
+            phase_text="Connecting to the RakuOS image registry..."
+            return
+            ;;
+        Importing:*)
+            if [ "$progress_value" -lt 6 ]; then
+                progress_value=6
+            fi
+            phase_text="Importing image metadata..."
+            return
+            ;;
+        ostree\ chunk\ layers\ already\ present:*|ostree\ chunk\ layers\ needed:*|custom\ layers\ needed:*)
+            if [ "$progress_value" -lt 10 ]; then
+                progress_value=10
+            fi
+            phase_text="Preparing download..."
+            return
+            ;;
+        *Checking\ out\ tree*|*Writing\ objects:*|*Writing\ commit:*|*Creating\ deployment*|*Staging\ deployment*|*Deploying*)
+            if [ "$progress_value" -lt 92 ]; then
+                progress_value=92
+            fi
+            phase_text="Writing the new deployment..."
+            return
+            ;;
+    esac
+
+    if [[ "$line" =~ ^\[([0-9]+)/([0-9]+)\][[:space:]]+Fetching[[:space:]] ]]; then
+        current="${BASH_REMATCH[1]}"
+        total="${BASH_REMATCH[2]}"
+
+        if [ "$total" -gt 0 ]; then
+            completed=$((current + 1))
+            mapped=$((10 + (completed * 78 / total)))
+
+            if [ "$mapped" -gt "$progress_value" ]; then
+                progress_value="$mapped"
+            fi
+
+            phase_text="Downloading RakuOS... (${completed}/${total})"
+        fi
+    fi
+}
+
 log "Script started (user=${USER:-$UID}, display=${DISPLAY:-}, wayland=${WAYLAND_DISPLAY:-}, runtime_dir=$RUNTIME_DIR)"
 
 if command -v flock >/dev/null 2>&1; then
@@ -70,7 +133,7 @@ fi
 
 unset YAD_OPTIONS
 
-if [ "$STARTUP_DELAY_SECONDS" -gt 0 ]; then
+if [ "${ORIGAMI_MIGRATE_SKIP_DELAY:-0}" != "1" ] && [ "$STARTUP_DELAY_SECONDS" -gt 0 ]; then
     log "Sleeping for $STARTUP_DELAY_SECONDS seconds before showing UI"
     sleep "$STARTUP_DELAY_SECONDS"
 fi
@@ -499,6 +562,16 @@ run_rebase() {
     local cmd_pid yad_pid
     local cmd_status=0 yad_status=0
     local cmd_waited=0 user_canceled=0 progress_open=1 cancel_failed=0
+    local progress_value=1
+    local phase_text="Preparing migration..."
+    local last_sent_value=-1
+    local last_sent_text=""
+    local last_line_count=0
+    local current_line_count=0
+    local start_line
+    local line
+    local idle_ticks=0
+    local had_log_activity=0
 
     LAST_ATTEMPT_LOG="$STATE_DIR/rebase-$(date +%Y%m%d-%H%M%S).log"
     : >"$LAST_ATTEMPT_LOG"
@@ -528,15 +601,14 @@ run_rebase() {
     yad --progress \
         --center \
         --fixed \
-        --width=540 \
+        --width=580 \
         --borders=22 \
         --title="Installing RakuOS" \
         --window-icon="$WINDOW_ICON_INSTALL" \
-        --text-width=50 \
+        --text-width=56 \
         --buttons-layout=end \
         --text-align=left \
-        --text="Preparing your RakuOS migration.\n\nThis may take a few minutes. Please keep your system turned on." \
-        --pulsate \
+        --text="Downloading and preparing RakuOS.\n\nThis may take several minutes depending on your connection and disk speed." \
         --button="Cancel":10 \
         <"$progress_fifo" >/dev/null 2>>"$SCRIPT_LOG" &
     yad_pid=$!
@@ -547,24 +619,58 @@ run_rebase() {
     printf '[%s] Target: %s\n' "$(timestamp)" "$label" >>"$LAST_ATTEMPT_LOG"
     printf '[%s] Ref: %s\n' "$(timestamp)" "$ref" >>"$LAST_ATTEMPT_LOG"
 
-    if [ "$progress_open" -eq 1 ]; then
-        printf '# Preparing %s...\n' "$label" >&3 || true
-        printf '# A system authentication prompt may appear.\n' >&3 || true
-        printf '10\n' >&3 || true
-    fi
+    flush_progress_state
 
     rpm-ostree rebase "$ref" >>"$LAST_ATTEMPT_LOG" 2>&1 &
     cmd_pid=$!
 
     while :; do
+        had_log_activity=0
+        current_line_count="$(wc -l <"$LAST_ATTEMPT_LOG" 2>/dev/null | tr -d '[:space:]')"
+        current_line_count="${current_line_count:-0}"
+
+        if [ "$current_line_count" -gt "$last_line_count" ]; then
+            start_line=$((last_line_count + 1))
+
+            while IFS= read -r line; do
+                update_progress_from_log_line "$line"
+            done < <(sed -n "${start_line},${current_line_count}p" "$LAST_ATTEMPT_LOG" 2>/dev/null)
+
+            last_line_count="$current_line_count"
+            had_log_activity=1
+            idle_ticks=0
+            flush_progress_state
+        fi
+
         if ! kill -0 "$cmd_pid" 2>/dev/null; then
             wait "$cmd_pid"
             cmd_status=$?
             cmd_waited=1
 
+            current_line_count="$(wc -l <"$LAST_ATTEMPT_LOG" 2>/dev/null | tr -d '[:space:]')"
+            current_line_count="${current_line_count:-0}"
+
+            if [ "$current_line_count" -gt "$last_line_count" ]; then
+                start_line=$((last_line_count + 1))
+
+                while IFS= read -r line; do
+                    update_progress_from_log_line "$line"
+                done < <(sed -n "${start_line},${current_line_count}p" "$LAST_ATTEMPT_LOG" 2>/dev/null)
+
+                last_line_count="$current_line_count"
+            fi
+
             if [ "$progress_open" -eq 1 ]; then
-                printf '# Finishing up...\n' >&3 || true
-                printf '100\n' >&3 || true
+                if [ "$progress_value" -lt 98 ]; then
+                    progress_value=98
+                    phase_text="Finalizing RakuOS..."
+                    flush_progress_state
+                fi
+
+                progress_value=100
+                phase_text="Done"
+                flush_progress_state
+
                 kill -USR1 "$yad_pid" 2>/dev/null || true
                 wait "$yad_pid" 2>/dev/null || true
                 progress_open=0
@@ -585,7 +691,7 @@ run_rebase() {
 
                     if interrupt_rebase_client "$cmd_pid"; then
                         if ! kill -0 "$cmd_pid" 2>/dev/null; then
-                            wait "$cmd_pid" 2>/dev/null
+                            wait "$cmd_pid" 2>/dev/null || true
                             cmd_status=$?
                             cmd_waited=1
                         fi
@@ -603,8 +709,18 @@ run_rebase() {
             esac
         fi
 
-        if [ "$progress_open" -eq 1 ]; then
-            printf '# Working…\n' >&3 || true
+        if [ "$progress_open" -eq 1 ] && [ "$had_log_activity" -eq 0 ]; then
+            idle_ticks=$((idle_ticks + 1))
+
+            if [ "$progress_value" -lt 10 ] && [ $((idle_ticks % 3)) -eq 0 ]; then
+                progress_value=$((progress_value + 1))
+                phase_text="Preparing migration..."
+                flush_progress_state
+            elif [ "$progress_value" -ge 88 ] && [ "$progress_value" -lt 96 ] && [ $((idle_ticks % 4)) -eq 0 ]; then
+                progress_value=$((progress_value + 1))
+                phase_text="Writing the new deployment..."
+                flush_progress_state
+            fi
         fi
 
         sleep 1

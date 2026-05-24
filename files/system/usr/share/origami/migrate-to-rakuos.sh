@@ -5,7 +5,7 @@ set -uo pipefail
 SCRIPT_NAME="origami-migrate-to-rakuos"
 PROMPT_INTERVAL_DAYS=3
 PROMPT_INTERVAL_SECONDS=$((PROMPT_INTERVAL_DAYS * 24 * 60 * 60))
-STARTUP_DELAY_SECONDS=10
+STARTUP_DELAY_SECONDS=5
 
 RAKUOS_URL="https://rakuos.org/origami"
 RAKUOS_LOGO_URL="https://rakuos.org/themes/raku/assets/images/rakuos_whitelogo_med.png"

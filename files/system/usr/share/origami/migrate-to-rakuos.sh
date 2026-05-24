@@ -5,6 +5,7 @@ set -uo pipefail
 SCRIPT_NAME="origami-migrate-to-rakuos"
 PROMPT_INTERVAL_DAYS=3
 PROMPT_INTERVAL_SECONDS=$((PROMPT_INTERVAL_DAYS * 24 * 60 * 60))
+STARTUP_DELAY_SECONDS=10
 
 RAKUOS_URL="https://rakuos.org/origami"
 RAKUOS_LOGO_URL="https://rakuos.org/themes/raku/assets/images/rakuos_whitelogo_med.png"
@@ -68,6 +69,11 @@ if command -v flock >/dev/null 2>&1; then
 fi
 
 unset YAD_OPTIONS
+
+if [ "$STARTUP_DELAY_SECONDS" -gt 0 ]; then
+    log "Sleeping for $STARTUP_DELAY_SECONDS seconds before showing UI"
+    sleep "$STARTUP_DELAY_SECONDS"
+fi
 
 have_gui_session() {
     if [ -n "${WAYLAND_DISPLAY:-}" ] && [ -n "${XDG_RUNTIME_DIR:-}" ] && [ -S "${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}" ]; then

@@ -17,7 +17,7 @@ modules:
     install:
       packages:
         - terra-release
-        #- cosmic-reader
+        - cosmic-reader
         - cosmic-ext-calculator
         - cosmic-ext-storage
         - cosmic-ext-applet-clipboard-manager

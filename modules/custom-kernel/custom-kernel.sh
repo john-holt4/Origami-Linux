@@ -246,8 +246,12 @@ log "Installing kernel packages: ${KERNEL_PACKAGES}"
 # shellcheck disable=SC2086
 dnf -y install $KERNEL_PACKAGES akmods
 
-KERNEL_VERSION=$(rpm -q "${KERNEL_PKG}" --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}') || exit 1
+# --- PR FIX IMPLEMENTED HERE ---
+# If multiple kernel versions are present, this explicitly sorts them and takes the latest one,
+# preventing `akmods` failures caused by multi-line variables.
+KERNEL_VERSION=$(rpm -q "${KERNEL_PKG}" --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort -V | tail -n 1) || exit 1
 log "Kernel version: ${KERNEL_VERSION}"
+# -------------------------------
 
 log "Restoring kernel install scripts."
 restore_kernel_install_hooks
@@ -259,7 +263,7 @@ rm -f /etc/yum.repos.d/*copr*
 # Build v4l2loopback
 # ---------------------------------------------------------------------------
 
-log "Building v4l2loopback module."
+log "Building v4l2loopback module for kernel: ${KERNEL_VERSION}"
 disable_akmodsbuild || exit 1
 
 log "Enabling RPM Fusion Free repo."
@@ -305,7 +309,7 @@ if [ "${NVIDIA}" = "true" ]; then
         https://negativo17.org/repos/fedora-nvidia.repo \
         -o /etc/yum.repos.d/fedora-nvidia.repo
 
-    log "Building Nvidia kernel modules."
+    log "Building Nvidia kernel modules for kernel: ${KERNEL_VERSION}"
     disable_akmodsbuild || exit 1
 
     dnf install -y --setopt=install_weak_deps=False --setopt=tsflags=noscripts \

@@ -297,13 +297,13 @@ restore_akmodsbuild
 if [ "${NVIDIA}" = "true" ]; then
     log "Starting upstream NVIDIA payload build for kernel ${KERNEL_VERSION}."
 
-    # 1. Install build dependencies
-    NVIDIA_BUILD_DEPS="dkms gcc make perl elfutils-libelf-devel libglvnd libglvnd-egl libglvnd-gles libglvnd-glx libglvnd-opengl egl-x11 egl-wayland2 egl-gbm xorg-x11-server-Xorg policycoreutils checkpolicy selinux-policy-devel clang llvm lld"
+    # 1. Install build dependencies.
+    # Removed policycoreutils from this list so it doesn't get uninstalled later.
+    NVIDIA_BUILD_DEPS="dkms gcc make perl elfutils-libelf-devel libglvnd libglvnd-egl libglvnd-gles libglvnd-glx libglvnd-opengl egl-x11 egl-wayland2 egl-gbm xorg-x11-server-Xorg checkpolicy selinux-policy-devel clang llvm lld"
 
-    # Notice we append curl, tar, and bzip2 here so they are present,
-    # but we DO NOT add them to the transient removal list to protect DNF/RPM.
+    # Added policycoreutils to the persistent install list here:
     # shellcheck disable=SC2086
-    dnf install -y --setopt=install_weak_deps=False $NVIDIA_BUILD_DEPS curl tar bzip2
+    dnf install -y --setopt=install_weak_deps=False $NVIDIA_BUILD_DEPS curl tar bzip2 policycoreutils
 
     if [[ ! -d "$KERNEL_SOURCE" ]]; then
         err "Missing kernel source path after installing devel package: $KERNEL_SOURCE"
@@ -335,7 +335,7 @@ if [ "${NVIDIA}" = "true" ]; then
         exit 1
     fi
 
-    # 3. Compile and Install (Removed deprecated --no-network and --no-runlevel-check)
+    # 3. Compile and Install
     log "Running NVIDIA installer with Clang/LLVM overrides..."
     env CC=clang LLVM=1 LD=ld.lld IGNORE_CC_MISMATCH=1 "$NVIDIA_SRC_DIR/nvidia-installer" \
         --silent \
@@ -387,7 +387,7 @@ kargs = [
 EOF
     chmod 0644 /usr/lib/bootc/kargs.d/90-nvidia.toml
 
-    # 5. Enable systemd services (Silenced outputs to hide container PID 1 complaints)
+    # 5. Enable systemd services
     systemctl enable nvidia-powerd.service >/dev/null 2>&1 || true
     systemctl enable nvidia-persistenced.service >/dev/null 2>&1 || true
 

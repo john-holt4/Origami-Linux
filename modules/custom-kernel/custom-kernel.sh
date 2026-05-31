@@ -1,28 +1,3 @@
-Switching to the official NVIDIA `.run` payload is a completely valid, brute-force way to bypass the exact multilib dependency hell you just experienced. Because the image you are building is the final immutable artifact, bypassing `dnf` for the driver installation is actually a very viable strategy in this context.
-
-Here is a breakdown of what happens if you adopt this approach, followed by how to integrate it into your specific `custom-kernel.sh`.
-
-### The Pros
-
-* **Bypasses Dependency Hell:** You get the complete 32-bit and 64-bit stack bundled directly from NVIDIA. You will never experience a `dnf` version mismatch again.
-* **Always Up to Date:** You dynamically fetch the absolute latest driver directly from NVIDIA's servers rather than waiting for repository maintainers (like Negativo17 or RPMFusion) to package and sync them.
-* **Decoupled from Akmods:** You compile the module directly against your kernel source tree using NVIDIA's official installer, skipping the `akmods` abstraction entirely.
-
-### The Cons
-
-* **Untracked Files:** The files installed by the `.run` script are not tracked by RPM. While this is a cardinal sin on traditional Linux setups, it is generally acceptable in container-native OS builds (like Bluefin/Bazzite/OSTree) because the entire image is the package.
-* **Container Toolkit is Separate:** The `.run` payload only contains the driver and basic utilities. You still need to configure the NVIDIA repository specifically to install `nvidia-container-toolkit`.
-* **Manual Cleanup:** You have to manually install heavy build tools (`gcc`, `make`, `dkms`) and explicitly strip them out afterward to keep your final image size down.
-
----
-
-### The Integrated Script
-
-I have rewritten the `NVIDIA` section of your `custom-kernel.sh` to use the `.run` payload method from your example, while preserving your existing SecureBoot signing, CachyOS kernel resolution, and Dracut configurations.
-
-I removed the `rakuos`-specific manifest tracking from your example, as `blue-build` handles OSTree layers differently, and I kept your `nvidia-container-toolkit` installation intact.
-
-```bash
 #!/bin/sh
 set -eu
 
@@ -546,5 +521,3 @@ if [ "${NVIDIA}" = "true" ]; then
 fi
 
 log "Custom kernel installation complete."
-
-```

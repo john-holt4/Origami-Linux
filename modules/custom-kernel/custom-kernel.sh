@@ -297,9 +297,9 @@ restore_akmodsbuild
 if [ "${NVIDIA}" = "true" ]; then
     log "Starting upstream NVIDIA payload build for kernel ${KERNEL_VERSION}."
 
-    # 1. Separating transient build tools from permanent GUI runtime libraries
+    # 1. Added explicit Mesa drivers to ensure software fallback works in VMs
     NVIDIA_BUILD_TOOLS="dkms gcc make perl elfutils-libelf-devel checkpolicy selinux-policy-devel clang llvm lld"
-    NVIDIA_RUNTIME_DEPS="libglvnd libglvnd-egl libglvnd-gles libglvnd-glx libglvnd-opengl egl-x11 egl-wayland2 egl-gbm xorg-x11-server-Xorg"
+    NVIDIA_RUNTIME_DEPS="libglvnd libglvnd-egl libglvnd-gles libglvnd-glx libglvnd-opengl egl-x11 egl-wayland2 egl-gbm xorg-x11-server-Xorg mesa-dri-drivers mesa-vulkan-drivers mesa-libEGL mesa-libGL"
 
     # shellcheck disable=SC2086
     dnf install -y --setopt=install_weak_deps=False $NVIDIA_BUILD_TOOLS $NVIDIA_RUNTIME_DEPS curl tar bzip2 policycoreutils
@@ -334,15 +334,15 @@ if [ "${NVIDIA}" = "true" ]; then
         exit 1
     fi
 
-    # 3. Compile and Install
+    # 3. Compile and Install (REMOVED --install-libglvnd so Fedora controls display routing!)
     log "Running NVIDIA installer with Clang/LLVM overrides..."
     env CC=clang LLVM=1 LD=ld.lld IGNORE_CC_MISMATCH=1 "$NVIDIA_SRC_DIR/nvidia-installer" \
         --silent \
         --accept-license \
         --no-questions \
         --no-nouveau-check \
+        --no-backup \
         --no-check-for-alternate-installs \
-        --install-libglvnd \
         --kernel-name="${KERNEL_VERSION}" \
         --kernel-source-path="${KERNEL_SOURCE}" \
         --utility-prefix=/usr \

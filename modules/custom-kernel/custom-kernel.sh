@@ -297,13 +297,12 @@ restore_akmodsbuild
 if [ "${NVIDIA}" = "true" ]; then
     log "Starting upstream NVIDIA payload build for kernel ${KERNEL_VERSION}."
 
-    # 1. Install build dependencies.
-    # Removed policycoreutils from this list so it doesn't get uninstalled later.
-    NVIDIA_BUILD_DEPS="dkms gcc make perl elfutils-libelf-devel libglvnd libglvnd-egl libglvnd-gles libglvnd-glx libglvnd-opengl egl-x11 egl-wayland2 egl-gbm xorg-x11-server-Xorg checkpolicy selinux-policy-devel clang llvm lld"
+    # 1. Separating transient build tools from permanent GUI runtime libraries
+    NVIDIA_BUILD_TOOLS="dkms gcc make perl elfutils-libelf-devel checkpolicy selinux-policy-devel clang llvm lld"
+    NVIDIA_RUNTIME_DEPS="libglvnd libglvnd-egl libglvnd-gles libglvnd-glx libglvnd-opengl egl-x11 egl-wayland2 egl-gbm xorg-x11-server-Xorg"
 
-    # Added policycoreutils to the persistent install list here:
     # shellcheck disable=SC2086
-    dnf install -y --setopt=install_weak_deps=False $NVIDIA_BUILD_DEPS curl tar bzip2 policycoreutils
+    dnf install -y --setopt=install_weak_deps=False $NVIDIA_BUILD_TOOLS $NVIDIA_RUNTIME_DEPS curl tar bzip2 policycoreutils
 
     if [[ ! -d "$KERNEL_SOURCE" ]]; then
         err "Missing kernel source path after installing devel package: $KERNEL_SOURCE"
@@ -423,9 +422,9 @@ enable nvctk-cdi.service
 EOF
     chmod 0644 /usr/lib/systemd/system-preset/70-nvctk-cdi.preset
 
-    # 7. Mark build deps for removal
+    # 7. Mark ONLY the compilers/build tools for removal, preserving the GUI libraries
     # shellcheck disable=SC2086
-    TRANSIENT="${TRANSIENT} $NVIDIA_BUILD_DEPS"
+    TRANSIENT="${TRANSIENT} $NVIDIA_BUILD_TOOLS"
 
     # Generate module dependencies
     depmod "${KERNEL_VERSION}"

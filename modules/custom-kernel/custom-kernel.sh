@@ -297,13 +297,12 @@ restore_akmodsbuild
 if [ "${NVIDIA}" = "true" ]; then
     log "Starting upstream NVIDIA payload build for kernel ${KERNEL_VERSION}."
 
-    # 1. Install build dependencies
-    NVIDIA_BUILD_DEPS="dkms gcc make perl elfutils-libelf-devel libglvnd libglvnd-egl libglvnd-gles libglvnd-glx libglvnd-opengl egl-x11 egl-wayland2 egl-gbm xorg-x11-server-Xorg policycoreutils checkpolicy selinux-policy-devel clang llvm lld"
+    # 1. Added explicit Mesa drivers to ensure software fallback works in VMs
+    NVIDIA_BUILD_TOOLS="dkms gcc make perl elfutils-libelf-devel checkpolicy selinux-policy-devel clang llvm lld"
+    NVIDIA_RUNTIME_DEPS="libglvnd libglvnd-egl libglvnd-gles libglvnd-glx libglvnd-opengl egl-x11 egl-wayland2 egl-gbm xorg-x11-server-Xorg mesa-dri-drivers mesa-vulkan-drivers mesa-libEGL mesa-libGL"
 
-    # Notice we append curl, tar, and bzip2 here so they are present,
-    # but we DO NOT add them to the transient removal list to protect DNF/RPM.
     # shellcheck disable=SC2086
-    dnf install -y --setopt=install_weak_deps=False $NVIDIA_BUILD_DEPS curl tar bzip2
+    dnf install -y --setopt=install_weak_deps=False $NVIDIA_BUILD_TOOLS $NVIDIA_RUNTIME_DEPS curl tar bzip2 policycoreutils
 
     if [[ ! -d "$KERNEL_SOURCE" ]]; then
         err "Missing kernel source path after installing devel package: $KERNEL_SOURCE"
@@ -335,15 +334,15 @@ if [ "${NVIDIA}" = "true" ]; then
         exit 1
     fi
 
-    # 3. Compile and Install (Removed deprecated --no-network and --no-runlevel-check)
+    # 3. Compile and Install (REMOVED --install-libglvnd so Fedora controls display routing!)
     log "Running NVIDIA installer with Clang/LLVM overrides..."
     env CC=clang LLVM=1 LD=ld.lld IGNORE_CC_MISMATCH=1 "$NVIDIA_SRC_DIR/nvidia-installer" \
         --silent \
         --accept-license \
         --no-questions \
         --no-nouveau-check \
+        --no-backup \
         --no-check-for-alternate-installs \
-        --install-libglvnd \
         --kernel-name="${KERNEL_VERSION}" \
         --kernel-source-path="${KERNEL_SOURCE}" \
         --utility-prefix=/usr \
@@ -387,7 +386,7 @@ kargs = [
 EOF
     chmod 0644 /usr/lib/bootc/kargs.d/90-nvidia.toml
 
-    # 5. Enable systemd services (Silenced outputs to hide container PID 1 complaints)
+    # 5. Enable systemd services
     systemctl enable nvidia-powerd.service >/dev/null 2>&1 || true
     systemctl enable nvidia-persistenced.service >/dev/null 2>&1 || true
 
@@ -423,17 +422,9 @@ enable nvctk-cdi.service
 EOF
     chmod 0644 /usr/lib/systemd/system-preset/70-nvctk-cdi.preset
 
-    # 7. Install DGX SELinux Policy
-    log "Installing Nvidia SELinux policy."
-    curl -fsSL --retry 5 --create-dirs \
-        https://raw.githubusercontent.com/NVIDIA/dgx-selinux/master/bin/RHEL9/nvidia-container.pp \
-        -o nvidia-container.pp
-    semodule -i nvidia-container.pp >/dev/null 2>&1 || true
-    rm -f nvidia-container.pp
-
-    # 8. Mark build deps for removal
+    # 7. Mark ONLY the compilers/build tools for removal, preserving the GUI libraries
     # shellcheck disable=SC2086
-    TRANSIENT="${TRANSIENT} $NVIDIA_BUILD_DEPS"
+    TRANSIENT="${TRANSIENT} $NVIDIA_BUILD_TOOLS"
 
     # Generate module dependencies
     depmod "${KERNEL_VERSION}"

@@ -91,7 +91,6 @@ cachyos-lts)
     ;;
 esac
 
-# devel-matched provides sign-file and kernel headers; build-time only.
 TRANSIENT="${TRANSIENT} ${KERNEL_DEVEL_PKG}"
 
 # ---------------------------------------------------------------------------
@@ -242,12 +241,12 @@ log "Enabling COPR repo: ${COPR_REPO}"
 dnf -y copr enable "${COPR_REPO}"
 
 log "Installing kernel packages: ${KERNEL_PACKAGES}"
-# SC2086: intentional word-splitting on space-separated package list
 # shellcheck disable=SC2086
 dnf -y install $KERNEL_PACKAGES akmods
 
-KERNEL_VERSION=$(rpm -q "${KERNEL_PKG}" --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}') || exit 1
+KERNEL_VERSION=$(rpm -q "${KERNEL_PKG}" --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort -V | tail -n 1) || exit 1
 log "Kernel version: ${KERNEL_VERSION}"
+KERNEL_SOURCE="/usr/src/kernels/${KERNEL_VERSION}"
 
 log "Restoring kernel install scripts."
 restore_kernel_install_hooks
@@ -259,7 +258,7 @@ rm -f /etc/yum.repos.d/*copr*
 # Build v4l2loopback
 # ---------------------------------------------------------------------------
 
-log "Building v4l2loopback module."
+log "Building v4l2loopback module for kernel: ${KERNEL_VERSION}"
 disable_akmodsbuild || exit 1
 
 log "Enabling RPM Fusion Free repo."
@@ -272,7 +271,6 @@ TRANSIENT="${TRANSIENT} akmod-v4l2loopback"
 
 akmods --force --verbose --kernels "${KERNEL_VERSION}" --kmod v4l2loopback
 
-# akmods always exits 0, so check for failure logs explicitly.
 _fail_found=false
 for _f in /var/cache/akmods/v4l2loopback/*-for-"${KERNEL_VERSION}".failed.log; do
     [ -f "${_f}" ] && _fail_found=true && break
@@ -293,74 +291,115 @@ rm -f /etc/yum.repos.d/rpmfusion-free*.repo
 restore_akmodsbuild
 
 # ---------------------------------------------------------------------------
-# Build Nvidia modules (optional)
+# Build Nvidia via upstream .run payload
 # ---------------------------------------------------------------------------
 
 if [ "${NVIDIA}" = "true" ]; then
-    log "Enabling Nvidia repositories."
-    curl -fsSL --retry 5 --create-dirs \
-        https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo \
-        -o /etc/yum.repos.d/nvidia-container-toolkit.repo
-    curl -fsSL --retry 5 --create-dirs \
-        https://negativo17.org/repos/fedora-nvidia.repo \
-        -o /etc/yum.repos.d/fedora-nvidia.repo
+    log "Starting upstream NVIDIA payload build for kernel ${KERNEL_VERSION}."
 
-    log "Building Nvidia kernel modules."
-    disable_akmodsbuild || exit 1
+    # 1. Install build dependencies
+    NVIDIA_BUILD_DEPS="dkms gcc make perl elfutils-libelf-devel libglvnd libglvnd-egl libglvnd-gles libglvnd-glx libglvnd-opengl egl-x11 egl-wayland2 egl-gbm xorg-x11-server-Xorg policycoreutils checkpolicy selinux-policy-devel clang llvm lld"
 
-    dnf install -y --setopt=install_weak_deps=False --setopt=tsflags=noscripts \
-        akmod-nvidia \
-        nvidia-kmod-common \
-        nvidia-modprobe \
-        gcc-c++
-    TRANSIENT="${TRANSIENT} akmod-nvidia gcc-c++"
+    # Notice we append curl, tar, and bzip2 here so they are present,
+    # but we DO NOT add them to the transient removal list to protect DNF/RPM.
+    # shellcheck disable=SC2086
+    dnf install -y --setopt=install_weak_deps=False $NVIDIA_BUILD_DEPS curl tar bzip2
 
-    akmods --force --verbose --kernels "${KERNEL_VERSION}" --kmod nvidia
-
-    # akmods always exits 0, so check for failure logs explicitly.
-    _fail_found=false
-    for _f in /var/cache/akmods/nvidia/*-for-"${KERNEL_VERSION}".failed.log; do
-        [ -f "${_f}" ] && _fail_found=true && break
-    done
-    if [ "${_fail_found}" = "true" ]; then
-        err "Nvidia akmod build failed:"
-        for _f in /var/cache/akmods/nvidia/*-for-"${KERNEL_VERSION}".failed.log; do
-            [ -f "${_f}" ] && cat "${_f}"
-        done
+    if [[ ! -d "$KERNEL_SOURCE" ]]; then
+        err "Missing kernel source path after installing devel package: $KERNEL_SOURCE"
         exit 1
     fi
 
-    restore_akmodsbuild
+    # 2. Fetch the latest NVIDIA version directly
+    NVIDIA_LATEST_URL="https://download.nvidia.com/XFree86/Linux-x86_64/latest.txt"
+    latest_info="$(curl -fsSL "$NVIDIA_LATEST_URL")"
+    NVIDIA_VERSION="$(awk '{print $1}' <<< "$latest_info")"
+    NVIDIA_RUN_PATH="$(awk '{print $2}' <<< "$latest_info")"
+    NVIDIA_RUN="${NVIDIA_RUN_PATH##*/}"
+    NVIDIA_URL="https://download.nvidia.com/XFree86/Linux-x86_64/${NVIDIA_RUN_PATH}"
 
-    log "Installing Nvidia userspace packages."
-    dnf install -y --setopt=skip_unavailable=1 \
-        libva-nvidia-driver \
-        nvidia-driver \
-        nvidia-persistenced \
-        nvidia-settings \
-        nvidia-driver-cuda \
-        libnvidia-cfg \
-        libnvidia-fbc \
-        libnvidia-ml \
-        libnvidia-gpucomp \
-        nvidia-driver-libs.i686 \
-        nvidia-driver-cuda-libs.i686 \
-        libnvidia-fbc.i686 \
-        libnvidia-ml.i686 \
-        libnvidia-gpucomp.i686 \
-        nvidia-container-toolkit
+    _tmpdir="$(mktemp -d)"
+    log "Downloading NVIDIA ${NVIDIA_VERSION} installer..."
+    curl -fL "$NVIDIA_URL" -o "$_tmpdir/$NVIDIA_RUN"
+    chmod +x "$_tmpdir/$NVIDIA_RUN"
 
-    log "Cleaning Nvidia repositories."
-    rm -f /etc/yum.repos.d/*nvidia*
+    log "Extracting NVIDIA installer payload..."
+    (
+        cd "$_tmpdir"
+        "./$NVIDIA_RUN" --extract-only
+    )
 
-    log "Installing Nvidia SELinux policy."
+    NVIDIA_SRC_DIR="$_tmpdir/NVIDIA-Linux-x86_64-${NVIDIA_VERSION}"
+    if [[ ! -d "$NVIDIA_SRC_DIR" ]]; then
+        err "Extracted NVIDIA source directory not found: $NVIDIA_SRC_DIR"
+        exit 1
+    fi
+
+    # 3. Compile and Install (Removed deprecated --no-network and --no-runlevel-check)
+    log "Running NVIDIA installer with Clang/LLVM overrides..."
+    env CC=clang LLVM=1 LD=ld.lld IGNORE_CC_MISMATCH=1 "$NVIDIA_SRC_DIR/nvidia-installer" \
+        --silent \
+        --accept-license \
+        --no-questions \
+        --no-nouveau-check \
+        --no-check-for-alternate-installs \
+        --install-libglvnd \
+        --kernel-name="${KERNEL_VERSION}" \
+        --kernel-source-path="${KERNEL_SOURCE}" \
+        --utility-prefix=/usr \
+        --opengl-prefix=/usr \
+        --compat32-prefix=/usr \
+        --x-prefix=/usr
+
+    rm -rf "$_tmpdir"
+
+    # 4. Apply standard configuration files
+    mkdir -p /etc/modprobe.d /usr/lib/udev/rules.d /usr/lib/dracut/dracut.conf.d
+
+    cat <<'EOF' > /etc/modprobe.d/nvidia.conf
+blacklist nouveau
+options nouveau modeset=0
+options nvidia-drm modeset=1 fbdev=1
+EOF
+    chmod 0644 /etc/modprobe.d/nvidia.conf
+
+    cat <<'EOF' > /usr/lib/dracut/dracut.conf.d/99-nvidia.conf
+force_drivers+=" nvidia nvidia_modeset nvidia_uvm nvidia_peermem nvidia_drm "
+omit_drivers+=" nouveau "
+EOF
+    chmod 0644 /usr/lib/dracut/dracut.conf.d/99-nvidia.conf
+
+    cat <<'EOF' > /usr/lib/udev/rules.d/60-nvidia.rules
+KERNEL=="nvidia", RUN+="/usr/bin/nvidia-modprobe -c 0 -u"
+KERNEL=="nvidia_uvm", RUN+="/usr/bin/nvidia-modprobe -c 0 -u"
+EOF
+    chmod 0644 /usr/lib/udev/rules.d/60-nvidia.rules
+
+    mkdir -p /usr/lib/bootc/kargs.d
+    cat <<'EOF' > /usr/lib/bootc/kargs.d/90-nvidia.toml
+kargs = [
+"rd.driver.blacklist=nouveau",
+"modprobe.blacklist=nouveau",
+"rd.driver.pre=nvidia",
+"nvidia-drm.modeset=1",
+"nvidia-drm.fbdev=1"
+]
+EOF
+    chmod 0644 /usr/lib/bootc/kargs.d/90-nvidia.toml
+
+    # 5. Enable systemd services (Silenced outputs to hide container PID 1 complaints)
+    systemctl enable nvidia-powerd.service >/dev/null 2>&1 || true
+    systemctl enable nvidia-persistenced.service >/dev/null 2>&1 || true
+
+    # 6. Install NVIDIA Container Toolkit
+    log "Installing NVIDIA Container Toolkit..."
     curl -fsSL --retry 5 --create-dirs \
-        https://raw.githubusercontent.com/NVIDIA/dgx-selinux/master/bin/RHEL9/nvidia-container.pp \
-        -o nvidia-container.pp
-    semodule -i nvidia-container.pp
-    rm -f nvidia-container.pp
+        https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo \
+        -o /etc/yum.repos.d/nvidia-container-toolkit.repo
+    dnf install -y --setopt=skip_unavailable=1 nvidia-container-toolkit
+    rm -f /etc/yum.repos.d/nvidia-container-toolkit.repo
 
-    log "Installing Nvidia container toolkit service and preset."
+    log "Installing Container Toolkit CDI auto-generation unit."
     mkdir -p /usr/lib/systemd/system
     cat <<'EOF' > /usr/lib/systemd/system/nvctk-cdi.service
 [Unit]
@@ -384,32 +423,20 @@ enable nvctk-cdi.service
 EOF
     chmod 0644 /usr/lib/systemd/system-preset/70-nvctk-cdi.preset
 
-    mkdir -p /etc/modprobe.d
-    cat <<'EOF' > /etc/modprobe.d/nvidia.conf
-blacklist nouveau
-options nouveau modeset=0
-options nvidia-drm modeset=1 fbdev=1
-EOF
-    chmod 0644 /etc/modprobe.d/nvidia.conf
+    # 7. Install DGX SELinux Policy
+    log "Installing Nvidia SELinux policy."
+    curl -fsSL --retry 5 --create-dirs \
+        https://raw.githubusercontent.com/NVIDIA/dgx-selinux/master/bin/RHEL9/nvidia-container.pp \
+        -o nvidia-container.pp
+    semodule -i nvidia-container.pp >/dev/null 2>&1 || true
+    rm -f nvidia-container.pp
 
-    mkdir -p /usr/lib/dracut/dracut.conf.d
-    cat <<'EOF' > /usr/lib/dracut/dracut.conf.d/99-nvidia.conf
-# Force the i915 amdgpu nvidia drivers to the ramdisk
-force_drivers+=" i915 amdgpu nvidia nvidia_drm nvidia_modeset nvidia_peermem nvidia_uvm "
-EOF
-    chmod 0644 /usr/lib/dracut/dracut.conf.d/99-nvidia.conf
+    # 8. Mark build deps for removal
+    # shellcheck disable=SC2086
+    TRANSIENT="${TRANSIENT} $NVIDIA_BUILD_DEPS"
 
-    mkdir -p /usr/lib/bootc/kargs.d
-    cat <<'EOF' > /usr/lib/bootc/kargs.d/90-nvidia.toml
-kargs = [
-"rd.driver.blacklist=nouveau",
-"modprobe.blacklist=nouveau",
-"rd.driver.pre=nvidia",
-"nvidia-drm.modeset=1",
-"nvidia-drm.fbdev=1"
-]
-EOF
-    chmod 0644 /usr/lib/bootc/kargs.d/90-nvidia.toml
+    # Generate module dependencies
+    depmod "${KERNEL_VERSION}"
 fi
 
 # ---------------------------------------------------------------------------
@@ -429,15 +456,12 @@ fi
 
 # ---------------------------------------------------------------------------
 # Remove transient build packages
-# sign-file (inside *-devel-matched) is no longer needed past this point.
 # ---------------------------------------------------------------------------
 
 log "Removing transient build packages: ${TRANSIENT}"
-# SC2086: intentional word-splitting on space-separated package list
 # shellcheck disable=SC2086
 dnf -y remove $TRANSIENT || true
 
-# Safety-net: remove any remaining akmod-* or *-devel-matched packages.
 _residual=$(rpm -qa --queryformat '%{NAME}\n' | grep -E '^akmod-|(-devel-matched)$' || true)
 if [ -n "${_residual}" ]; then
     log "Removing residual build packages: ${_residual}"
@@ -445,12 +469,11 @@ if [ -n "${_residual}" ]; then
     dnf -y remove $_residual || true
 fi
 
-# Nuke kernel build trees (belt-and-suspenders after devel-matched removal).
 log "Removing kernel build trees."
-rm -rf /usr/lib/modules/*/build /usr/lib/modules/*/source
+rm -rf /usr/lib/modules/*/build /usr/lib/modules/*/source /usr/src/nvidia-*
 
 log "Removing akmods build artefacts."
-rm -rf /var/cache/akmods
+rm -rf /var/cache/akmods /var/lib/dkms
 
 log "Cleaning DNF caches."
 dnf -y clean all || true
@@ -487,12 +510,9 @@ if [ "${SECURE_BOOT}" = "true" ]; then
 fi
 
 if [ "${NVIDIA}" = "true" ]; then
-    _nvidia_dir="/usr/lib/modules/${KERNEL_VERSION}/extra/nvidia"
-    [ -d "${_nvidia_dir}" ] \
-        || { err "Missing Nvidia module directory: ${_nvidia_dir}"; exit 1; }
     for _name in nvidia nvidia-drm nvidia-modeset nvidia-peermem nvidia-uvm; do
-        if ! ls "${_nvidia_dir}/${_name}".* >/dev/null 2>&1; then
-            err "Missing Nvidia module: ${_nvidia_dir}/${_name}.*"
+        if ! find "/usr/lib/modules/${KERNEL_VERSION}" -name "${_name}.ko*" | grep -q .; then
+            err "Missing Nvidia module: ${_name}.ko*"
             exit 1
         fi
     done

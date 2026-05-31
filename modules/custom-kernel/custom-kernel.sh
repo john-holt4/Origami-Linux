@@ -423,15 +423,7 @@ enable nvctk-cdi.service
 EOF
     chmod 0644 /usr/lib/systemd/system-preset/70-nvctk-cdi.preset
 
-    # 7. Install DGX SELinux Policy
-    log "Installing Nvidia SELinux policy."
-    curl -fsSL --retry 5 --create-dirs \
-        https://raw.githubusercontent.com/NVIDIA/dgx-selinux/master/bin/RHEL9/nvidia-container.pp \
-        -o nvidia-container.pp
-    semodule -i nvidia-container.pp >/dev/null 2>&1 || true
-    rm -f nvidia-container.pp
-
-    # 8. Mark build deps for removal
+    # 7. Mark build deps for removal
     # shellcheck disable=SC2086
     TRANSIENT="${TRANSIENT} $NVIDIA_BUILD_DEPS"
 

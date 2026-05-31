@@ -297,8 +297,8 @@ restore_akmodsbuild
 if [ "${NVIDIA}" = "true" ]; then
     log "Starting upstream NVIDIA payload build for kernel ${KERNEL_VERSION}."
 
-    # 1. Install build dependencies needed for the installer
-    NVIDIA_BUILD_DEPS="dkms gcc make perl elfutils-libelf-devel libglvnd libglvnd-egl libglvnd-gles libglvnd-glx libglvnd-opengl egl-x11 egl-wayland2 egl-gbm xorg-x11-server-Xorg policycoreutils checkpolicy selinux-policy-devel bzip2 curl tar"
+    # 1. Install build dependencies (Added clang, llvm, lld for LTO kernel support)
+    NVIDIA_BUILD_DEPS="dkms gcc make perl elfutils-libelf-devel libglvnd libglvnd-egl libglvnd-gles libglvnd-glx libglvnd-opengl egl-x11 egl-wayland2 egl-gbm xorg-x11-server-Xorg policycoreutils checkpolicy selinux-policy-devel bzip2 curl tar clang llvm lld"
     # shellcheck disable=SC2086
     dnf install -y --setopt=install_weak_deps=False $NVIDIA_BUILD_DEPS
 
@@ -332,9 +332,9 @@ if [ "${NVIDIA}" = "true" ]; then
         exit 1
     fi
 
-    # 3. Compile and Install
-    log "Running NVIDIA installer..."
-    LD=ld.bfd "$NVIDIA_SRC_DIR/nvidia-installer" \
+    # 3. Compile and Install (Forced to use Clang/LLVM via environment variables)
+    log "Running NVIDIA installer with Clang/LLVM overrides..."
+    env CC=clang LLVM=1 LD=ld.lld IGNORE_CC_MISMATCH=1 "$NVIDIA_SRC_DIR/nvidia-installer" \
         --silent \
         --accept-license \
         --no-questions \
@@ -390,7 +390,7 @@ EOF
     systemctl enable nvidia-powerd.service 2>/dev/null || true
     systemctl enable nvidia-persistenced.service 2>/dev/null || true
 
-    # 6. Install NVIDIA Container Toolkit (still requires the repo)
+    # 6. Install NVIDIA Container Toolkit
     log "Installing NVIDIA Container Toolkit..."
     curl -fsSL --retry 5 --create-dirs \
         https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo \
@@ -509,8 +509,6 @@ if [ "${SECURE_BOOT}" = "true" ]; then
 fi
 
 if [ "${NVIDIA}" = "true" ]; then
-    # The .run payload sometimes places modules in different subdirs depending on the kernel structure.
-    # Using `find` ensures we can verify them regardless of exact extra/kernel location.
     for _name in nvidia nvidia-drm nvidia-modeset nvidia-peermem nvidia-uvm; do
         if ! find "/usr/lib/modules/${KERNEL_VERSION}" -name "${_name}.ko*" | grep -q .; then
             err "Missing Nvidia module: ${_name}.ko*"

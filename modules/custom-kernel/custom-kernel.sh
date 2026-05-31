@@ -297,10 +297,13 @@ restore_akmodsbuild
 if [ "${NVIDIA}" = "true" ]; then
     log "Starting upstream NVIDIA payload build for kernel ${KERNEL_VERSION}."
 
-    # 1. Install build dependencies (Added clang, llvm, lld for LTO kernel support)
-    NVIDIA_BUILD_DEPS="dkms gcc make perl elfutils-libelf-devel libglvnd libglvnd-egl libglvnd-gles libglvnd-glx libglvnd-opengl egl-x11 egl-wayland2 egl-gbm xorg-x11-server-Xorg policycoreutils checkpolicy selinux-policy-devel bzip2 curl tar clang llvm lld"
+    # 1. Install build dependencies
+    NVIDIA_BUILD_DEPS="dkms gcc make perl elfutils-libelf-devel libglvnd libglvnd-egl libglvnd-gles libglvnd-glx libglvnd-opengl egl-x11 egl-wayland2 egl-gbm xorg-x11-server-Xorg policycoreutils checkpolicy selinux-policy-devel clang llvm lld"
+
+    # Notice we append curl, tar, and bzip2 here so they are present,
+    # but we DO NOT add them to the transient removal list to protect DNF/RPM.
     # shellcheck disable=SC2086
-    dnf install -y --setopt=install_weak_deps=False $NVIDIA_BUILD_DEPS
+    dnf install -y --setopt=install_weak_deps=False $NVIDIA_BUILD_DEPS curl tar bzip2
 
     if [[ ! -d "$KERNEL_SOURCE" ]]; then
         err "Missing kernel source path after installing devel package: $KERNEL_SOURCE"
@@ -332,15 +335,13 @@ if [ "${NVIDIA}" = "true" ]; then
         exit 1
     fi
 
-    # 3. Compile and Install (Forced to use Clang/LLVM via environment variables)
+    # 3. Compile and Install (Removed deprecated --no-network and --no-runlevel-check)
     log "Running NVIDIA installer with Clang/LLVM overrides..."
     env CC=clang LLVM=1 LD=ld.lld IGNORE_CC_MISMATCH=1 "$NVIDIA_SRC_DIR/nvidia-installer" \
         --silent \
         --accept-license \
         --no-questions \
-        --no-runlevel-check \
         --no-nouveau-check \
-        --no-network \
         --no-check-for-alternate-installs \
         --install-libglvnd \
         --kernel-name="${KERNEL_VERSION}" \
@@ -386,9 +387,9 @@ kargs = [
 EOF
     chmod 0644 /usr/lib/bootc/kargs.d/90-nvidia.toml
 
-    # 5. Enable systemd services
-    systemctl enable nvidia-powerd.service 2>/dev/null || true
-    systemctl enable nvidia-persistenced.service 2>/dev/null || true
+    # 5. Enable systemd services (Silenced outputs to hide container PID 1 complaints)
+    systemctl enable nvidia-powerd.service >/dev/null 2>&1 || true
+    systemctl enable nvidia-persistenced.service >/dev/null 2>&1 || true
 
     # 6. Install NVIDIA Container Toolkit
     log "Installing NVIDIA Container Toolkit..."
@@ -427,7 +428,7 @@ EOF
     curl -fsSL --retry 5 --create-dirs \
         https://raw.githubusercontent.com/NVIDIA/dgx-selinux/master/bin/RHEL9/nvidia-container.pp \
         -o nvidia-container.pp
-    semodule -i nvidia-container.pp
+    semodule -i nvidia-container.pp >/dev/null 2>&1 || true
     rm -f nvidia-container.pp
 
     # 8. Mark build deps for removal

@@ -110,6 +110,7 @@ modules:
     user:
       enabled:
         - podman.socket
+        - cosmic-flux-daemon
 
   - type: fonts
     fonts:

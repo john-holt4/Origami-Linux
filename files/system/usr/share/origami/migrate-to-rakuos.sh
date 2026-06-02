@@ -10,8 +10,8 @@ STARTUP_DELAY_SECONDS=5
 RAKUOS_URL="https://rakuos.org/"
 RAKUOS_LOGO_URL="https://rakuos.org/themes/raku/assets/images/rakuos_whitelogo_med.png"
 
-STANDARD_REF="ostree-unverified-registry:registry.gitlab.com/rakuos/images/rakuos-cosmic:latest"
-NVIDIA_REF="ostree-unverified-registry:registry.gitlab.com/rakuos/images/rakuos-cosmic/nvidia:latest"
+STANDARD_REF="ostree-unverified-registry:quay.io/rakuos/rakuos-cosmic:latest"
+NVIDIA_REF="ostree-unverified-registry:quay.io/rakuos/rakuos-cosmic-nvidia:latest"
 
 WINDOW_ICON_INSTALL="system-software-install"
 WINDOW_ICON_INFO="dialog-information"

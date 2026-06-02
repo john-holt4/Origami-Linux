@@ -7,7 +7,7 @@ PROMPT_INTERVAL_DAYS=1
 PROMPT_INTERVAL_SECONDS=$((PROMPT_INTERVAL_DAYS * 24 * 60 * 60))
 STARTUP_DELAY_SECONDS=5
 
-RAKUOS_URL="https://rakuos.org/"
+RAKUOS_URL="https://rakuos.org/origami"
 RAKUOS_LOGO_URL="https://rakuos.org/themes/raku/assets/images/rakuos_whitelogo_med.png"
 
 STANDARD_REF="ostree-unverified-registry:quay.io/rakuos/rakuos-cosmic:latest"
